@@ -1,0 +1,215 @@
+---
+title: "Labb 2"
+author: "Anton Holm"
+date: '2020-12-08'
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo = FALSE}
+suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(e1071))
+suppressPackageStartupMessages(library(dplyr))
+theme_set(theme_minimal()) # ggplot theme
+```
+
+```{r, echo = FALSE}
+#Load the ESL Mixture dataset
+load("ESL.mixture.rda")
+eslmix <- ESL.mixture
+```
+
+1a) Here are copies of Figure 12.2 from the ESL book. Note that class names are just dummy variables. The class with dummy variable equal to 0 has response equal to $-1$ while the class with dummy variable 1 has response variable equal to 1.
+
+```{r PartA, echo = FALSE}
+#Binds the training predictors and their class
+dfmix <- as.data.frame(cbind(eslmix$x, eslmix$y)) %>% 
+  rename(c(x1 = V1, x2 = V2, class = V3)) %>% 
+  mutate(class = as.factor(class))
+
+#Binds the lattice coordinates with the probabilities and estimate class using bayes classifier
+dfmixbig <- as.data.frame(cbind(eslmix$xnew, eslmix$prob)) %>% 
+  rename(prob = V3) %>% 
+  mutate(class = as.factor(ifelse(prob > 0.5, 1, 0))) %>% 
+  dplyr::select(x1, x2, class)
+
+#Cost values
+C1 <- 10000
+C2 <- 0.01
+
+#Creates the support vector machines (scale is set to FALSE since data is not standardized)
+lin1 <- svm(class ~ ., scale = FALSE, kernel = "linear", 
+            type = "C-classification", cost = C1,  data = dfmix)
+lin2 <- svm(class ~ ., scale = FALSE, kernel = "linear", 
+            type = "C-classification", cost = C2,  data = dfmix)
+
+#Predicts the class for the grid of predictors using the support vector machines above
+pred_lin1 <- data.frame(cbind(predict(lin1, eslmix$xnew), eslmix$xnew)) %>% 
+  rename(predicted = V1) %>% 
+  mutate(predicted = as.factor(ifelse(predicted == 2, 1, 0)))
+pred_lin2 <- data.frame(cbind(predict(lin2, eslmix$xnew), eslmix$xnew)) %>% 
+  rename(predicted = V1) %>% 
+  mutate(predicted = as.factor(ifelse(predicted == 2, 1, 0)))
+
+#Using eq 12.17 in the book to get the coefficients (coef = alpha times the training labels in ESL)
+#The intercept is already negative
+beta1 <- t(lin1$coefs) %*% lin1$SV
+intercept1 <- lin1$rho
+beta2 <- t(lin2$coefs) %*% lin2$SV
+intercept2 <- lin2$rho
+
+#Calculating the training error with 0/1 loss.
+train_error1 <- mean(lin1$fitted != dfmix$class)
+train_error2 <- mean(lin2$fitted != dfmix$class)
+
+#Calculates the testerror and bayeserror using the function given by the ESL website 
+#(changed to fit classification)
+test_error1 <- sum(eslmix$marginal*(eslmix$prob*ifelse(pred_lin1$predicted == 0, 1, 0)
+                                    +(1-eslmix$prob)*ifelse(pred_lin1$predicted == 1, 1, 0)))
+test_error2 <- sum(eslmix$marginal*(eslmix$prob*ifelse(pred_lin2$predicted == 0, 1, 0)+
+                                      (1-eslmix$prob)*ifelse(pred_lin2$predicted == 1, 1, 0)))
+bayes.error <- sum(eslmix$marginal*(eslmix$prob*ifelse(eslmix$prob<0.5, 1, 0)
+                                    +(1-eslmix$prob)*ifelse(eslmix$prob>=.5 ,1, 0)))
+
+#Find the points on the margin (following ESL page 421 this is the alpha estimates between 0 and C)
+marginpoints1 <- cbind.data.frame(alpha = abs(lin1$coefs), lin1$SV) %>% 
+  filter(alpha < C1)
+marginpoints2 <- cbind.data.frame(alpha = abs(lin2$coefs), lin2$SV) %>% 
+  filter(alpha < C2)
+
+#Plots figure 12.2 upper from the ESL book
+ggplot() +
+  geom_point(data = pred_lin1, aes(x = x1,y = x2, color = predicted), size =0.2)  +
+  geom_contour(data = dfmixbig, aes(x = x1, y = x2, z = as.numeric(class)), color = "purple", 
+               linetype = "dashed", breaks = 1.2, size = 0.8) +
+  geom_abline(intercept = intercept1/beta1[2], slope = -beta1[1]/beta1[2]) +
+  geom_abline(intercept = (intercept1 -1)/beta1[2], slope = -beta1[1]/beta1[2], linetype = "dashed") +
+  geom_abline(intercept = (intercept1 +1)/beta1[2], slope = -beta1[1]/beta1[2], linetype = "dashed") +
+  geom_point(data = dfmix, aes(x = x1, y = x2, color = class)) +
+  geom_point(data = marginpoints1, aes(x = x1, y = x2), size = 2) +
+  scale_color_manual(values = c("royalblue2", "goldenrod4")) +
+  annotate("label", x = -1.9, y = -0.7, label = paste0("Training Error:", train_error1), size =3)+
+  annotate("label", x = -2.05, y = -1, label = paste0("Test Error:", round(test_error1, 2)), size =3)+
+  annotate("label", x = -1.95, y = -1.3, label = paste0("Bayes Error:", round(bayes.error,2)), size = 3) +
+  labs(title = "Figure 1: Copy of upper part of Figure 12.2")
+
+#Plots figure 12.2 lower from the ESL book
+ggplot() +
+  geom_contour(data = dfmixbig, aes(x = x1, y = x2, z = as.numeric(class)), color = "purple", 
+               linetype = "dashed", breaks = 1.2) +
+  geom_abline(intercept = intercept2/beta2[2], slope = -beta2[1]/beta2[2]) +
+  geom_abline(intercept = (intercept2 -1)/beta2[2], slope = -beta2[1]/beta2[2], linetype = "dashed") +
+  geom_abline(intercept = (intercept2 +1)/beta2[2], slope = -beta2[1]/beta2[2], linetype = "dashed") +
+  geom_point(data = dfmix, aes(x = x1, y = x2, color = class)) +
+  geom_point(data = pred_lin2, aes(x = x1,y = x2, color=predicted), size =0.2)  +
+  scale_color_manual(values = c("royalblue2", "goldenrod4"))+
+  annotate("label", x = -1.9, y = -0.9, label = paste0("Training Error:", train_error2), size =3)+
+  annotate("label", x = -2.05, y = -1.2, label = paste0("Test Error:", round(test_error2, 2)), size =3)+
+  annotate("label", x = -1.95, y = -1.5, label = paste0("Bayes Error:", round(bayes.error,2)), size = 3) +
+  labs(title = "Figure 2: Copy of lower part of Figure 12.2") 
+```
+
+1b) Below is the upper part of Figure 12.3 from the ESL book. The points on the margin did not appear as they did in the book for this figure and the lower figure of figure 12.2. This might be due to the numerical approximation of the optimization problem of the svm function resulting in different accuracy of the convergence.
+
+```{r PartB, echo = FALSE}
+#Cost
+C3 = 1
+
+#Creates the support vector machine using the kernel trick
+#with a polynomial of degree 4 with the kernel
+#equal to (coef0 + gamma*<x,x'>)^{degree}
+poly <- svm(class ~ ., scale = FALSE, kernel = "polynomial", type = "C-classification", gamma = 1,
+            coef0 = 1, cost = C3, degree = 4, data = dfmix)
+
+#Predicts the response using the predictor grid on the svm
+pred <- predict(poly, eslmix$xnew, decision.values = TRUE)
+#Takes the decision values (f hats) needed to plot the decision boundry
+boundry <- attributes(pred)$decision
+pred_poly <- cbind.data.frame(pred, boundry, eslmix$xnew)
+
+#Calculating the training error with 0/1 loss.
+train_error3 <- mean(poly$fitted != dfmix$class)
+
+#Calculates the testerror using the function given by the ESL website (changed to fit classification)
+test_error3 <- sum(eslmix$marginal*(eslmix$prob*ifelse(pred_poly$pred == 0, 1, 0)+
+                                      (1-eslmix$prob)*ifelse(pred_poly$pred == 1, 1, 0)))
+
+#Find the points on the margin (following ESL page 421 this is the alpha estimates between 0 and C)
+marginpoints3 <- cbind.data.frame(alpha = abs(poly$coefs), poly$SV) %>% 
+  filter(alpha < C3)
+
+#Plots figure 12.3 upper from the ESL book
+ggplot() +
+  geom_point(data = dfmix, aes(x = x1, y = x2, color = class)) +
+  geom_point(data = pred_poly, aes(x = x1 ,y = x2, color = pred), size =0.2)  +
+  geom_contour(data = pred_poly, aes(x = x1, y = x2, z = `0/1`), breaks = 0, color = "black") +
+  geom_contour(data = pred_poly, aes(x = x1, y = x2, z = `0/1`-1), breaks = 0, color = "black", 
+               linetype = "dashed") +
+  geom_contour(data = pred_poly, aes(x = x1, y = x2, z = `0/1`+1), breaks = 0, color = "black", 
+               linetype = "dashed") +
+  geom_point(data = marginpoints3, aes(x = x1, y= x2), size = 2) +
+  scale_color_manual(values = c("royalblue2", "goldenrod4")) +
+  annotate("label", x = -1.9, y = -1, label = paste0("Training Error:", train_error3), size =3)+
+  annotate("label", x = -2.05, y = -1.3, label = paste0("Test Error:", round(test_error3, 2)), size =3)+
+  labs(title = "Figure 3: Copy of upper part of Figure 12.3") 
+```
+
+```{r PartC, echo = FALSE}
+C4 = 80
+#Creates the support vector machine using the kernel trick with a polynomial of degree 4
+#Coef0 is the 1 in (1 + <x, x'>)^d in eq(12.22) of ESL and gamma is a constant that is infront
+#of the inner product.
+poly2 <- svm(class ~ ., scale = FALSE, kernel = "polynomial", type = "C-classification", gamma = 1, 
+             coef0 = 1, cost = C4, degree = 4, data = dfmix)
+```
+
+These are the summaries of the svm using the kernel trick using $C3 = 1$ and $C4 = 80$.
+```{r PartD, echo = FALSE}
+print(poly)
+print(poly2)
+```
+
+1c. Due to the fact that for very large values of C, the numerical approximation of the svm function does not converge, I will use the largest value for C where the svm call does not have maximum iteration problems. This value was $C=80$. We can see from the call above that for larger value of C we have fewer support vectors. This is in accordance with the theory from the book since larger value of C results in smaller margins. Fewer supportvectors mean that we have fewer datapoints to use to produce the decision border. This mean that when we increase the value of C our model becomes less biased but have higher variance.
+
+2a. Let's first look at equation 12.25. Since multiplying a minimization problem with a constant does not change the parameter values chosen and $\lambda = 1/C$ we have,
+
+$$
+\underset{\beta_0, \beta}{\text{min}} \sum_{i=1}^N[1-f(x_i)y_i]_+ + \frac{\lambda}{2}||\beta||^2 = \underset{\beta_0, \beta}{\text{min}} ~~C\sum_{i=1}^N[1-f(x_i)y_i]_+ + \frac{1}{2}||\beta||^2 
+$$
+
+Now looking at eq 12.8. We know that if $\xi_i$ is correctly classified (as in not crossing the margin), then $\xi_i = 0$ and $y_i f(x_i) > 1-\xi_i$ and if $\xi_i$ is missclassified (as in crosses the margin) we have that $y_i f(x_i) = 1 - \xi_i$. So we only want the $\xi_i$ that is connected to a missclassified point to be contributing to the sum. As such we can rewrite eq 12.8 as
+
+$$
+\underset{\beta_0, \beta}{\text{min}} ~ C\sum_{i=1}^N\xi_i + \frac{1}{2}||\beta||^2 = \underset{\beta_0, \beta}{\text{min}} ~ C\sum_{i=1}^N[1-f(x_i)y_i]_+ + \frac{1}{2}||\beta||^2
+$$
+
+where the $[\cdot]_+$ means that whenever $\xi_i$ is missclassified, it contributes with $1-f(x_i)y_i$ and when $\xi_i$ is correctly classified, then $y_i f(x_i) > 1 - \xi_i = 1$ since $\xi_i = 0$ when correctly classified and as such, each $\xi_i$ contributes as it should, no matter if it is correctly- or misclassified. And so we have shown that eq 12.25 and eq 12.8 are equal.
+
+2b. Because in this case, points that are far away from the margin and on the correct side of it will contribute to the sum since then $y_i f(x_i) > 1$ so $[1-y_i f(x_i)]^2 > 0$ which is not an attribute we want in our model.
+
+2c. As in ridge regression, if lambda increase, we will shrink the betas more which mean that $y_i f(x_i)$ will become closer to zero and thus, $[1-y_i f(x_i)]_+$ will get smaller (for misclassified points) so each missclassified point will have less influence, especially points far away on the wrong side of the margin. Thus we can have a larger margin, which mean we will have more support vectors. Since our boarder is decided by our betas, and our betas by our support vectors, this mean that we will use more points from the training data to fit our model, and thus it will be more biased but also have less variance since we have more points to fit our model. If instead lambda decrease, we do not want to get any data which are missclassified by a lot. This will lead to us trying to overfit the boarder, and thus capture the noise in the dataset. As such, the model will be less bias but have higher variance. We will also get less support vectors to use to fit our decision boarder.
+
+## Appendix
+
+Some quick theory on the values of the slope and intercept for the graphs mimicing figure 12.2. 
+We have that the decision boundry has the equation $x_1\beta_1 + x_2\beta_2 + \beta_0 = 0$. Further, in our graphs, the y-axis is used up by the second predictor, $x_2$. As such, the linear equation for the boundry to be plotted is $x_2 = (-x_1\beta_1)/\beta_2 - \beta_0 / \beta_2$.
+
+Code for the Figure 12.2
+```{r ref.label="PartA", eval = FALSE}
+
+```
+
+Code for Figure 12.3 upper panel
+```{r ref.label="PartB", eval = FALSE}
+
+```
+
+Code for the svm analysis using $C = 80$
+```{r ref.label="PartC", eval = FALSE}
+
+```

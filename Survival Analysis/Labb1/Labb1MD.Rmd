@@ -1,0 +1,661 @@
+---
+title: "Labb1"
+author: "Anton Holm"
+date: '2020-09-12'
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(fig.width=12, fig.height=8)
+library(tidyverse); theme_set(theme_minimal())
+library(mice)
+library(dplyr)
+library(gridExtra)
+library(fitdistrplus)
+set.seed(921031)
+options(scipen=999)
+```
+
+# Introduction
+The aim of this report is to investigate the precision of the Nelson-Aalen estimator aswell as the Kaplan-Meier estimator. We will also take a look at how these differ when used on uncensored versus censored data. We will also see the importance of taking censoring in to consideration and that simply ignoring censoring will result in biased results.
+
+# Answers to Questions
+Throughout this paper, an orange line in any figure represents the true cumulative intensity distribution (survival function in the figures regarding Kaplan-Meier estimates) one get when fitting a weibull distribution to the censored dataset where all censored values are removed prior to fitting the distribution.
+
+## Nelson-Aalen Estimator
+As can be seen in Figure 1-5, the true cumulative intensity function lies more and more within the confidence interval as $n$ grows larger. We can also see, comparing Figures 1-5 with Figures 6-10 that censoring has little to no effect until the end of the process. At the end the Nelson-Aalen estimates are slightly lower than when there is no censoring and thus, for large $n$, the estimates when we have censored observations are slightly worse than when we have a complete dataset. At the same time, no matter if part of the data is censored or not, the Nelson-Aalen estimates seem to be more accurate the larger $n$ is while at the same time the confidence intervals grows smaller with $n$. As can be expected, if $n$ is too small (10 in this case), the estimates are not as useful. We can also see that the Nelson-Aalen estimates are better to use than to simply remove censored values and fit the cumulative intensity function to the filtered dataset.
+
+## Kaplan-Meier estimator
+Since we use the fact that the Nelson-Aalen estimates can be written as $-log(\hat{S})$ where $\hat{S}$ is the estimate of the survival function, the same analysis as for the Nelson-Aalen applies with some simple changes due to the fact that $\hat{A(t)}$ is a non-decreasing function and $\hat{S(t)}$ is a non-increasing function. 
+
+As to which of the estimator to chose from, I would say it really doesn't matter too much. This is a consequence of the relation between the two estimators. However, if you want to look at the survival function, obviously use the Kaplan-Meier estimator and use the Nelson-Aalen estimator if you want to look at the cumulative intensity function.
+
+# Explaination of the simulation study
+
+## Part 1.
+To begin with, $n$ simulated Weibull distributed random numbers were simulated using shape paramater $4.5$ and scale paramater $22.5$ for different values of $n$. These outcomes will take the roll of life times. We then calculate the Nelson-Aalen estimator using
+
+$$
+\hat{A}(t) = \sum_{T_j\leq t} \frac{1}{Y(T_j)}
+$$
+where $T_j$ are the simulated life times and $Y(T_j)$ is the number of people still alive at time $T_j^-$ i.e. just before time $T_j$. A standard $95 \%$ confidence interval was also calculated using the log-transformed confidence interval
+
+$$
+CI(A(t)) = \hat{A}(t)exp(\pm \frac{1.96\cdot\hat{\sigma}}{\hat{A}(t)})
+$$
+where $1.96$ comes from the $97.5\%$ quantile of a standard normal distribution and $\hat{\sigma}$ is the estimated standard deviation of the Nelson-Aalen estimator where
+
+$$
+\hat{\sigma}^2 = \sum_{T_j \leq t}\frac{1}{Y(T_j)^2}
+$$
+
+To investigate how ties affect the estimator, we introduce these by rounding up each estimation to the next tenth i.e. if an estimation lies within $(0.1,0.2]$ we instead use the value $0.2$. Using our new data sample with potential ties, we now get the Nelson-Aalen estimate as
+
+$$
+\hat{A}(t) = \sum_{T_j \leq t} \frac{1}{\Delta Y(T_j)}
+$$
+
+and the estimated variance as
+$$
+\hat{\sigma}^2 = \sum_{T_j \leq t}\frac{1}{(\Delta Y(T_j))^2}
+$$
+where $\Delta Y(T_j) = \sum_{k=1}^{d_j}Y(T_j)-(k-1)$ where $d_j$ represent how many people tied at a specific time $T_j$. Notice that when there are no ties, $d_j = 1$ and we have that $\Delta Y(T_j) = Y(T_j)$ as before. Lastly, the true cumulative intensity function $A(t)$ was calculated using the fact that $A(t) = -\log(S(t))$ where $S(t) = 1-F(t)$ with $F(t)$ being the cumulative distribution function given by the weibull distribution mentioned above. This was then compared with the Nelson-Aalen estimation. 
+
+
+## Part 2
+In part 2 of this project, we implement censoring. We simulate $n$ exponentially distributed random numbers and let a survival time be censored if it is larger than it's respective exponentialy distributed random number and a true event otherwise. The same analysis as in part 1 was done analogous only considering true events when taking the sum over events. The censored values however still have an impact on $Y(T_j)$, in other words, they do still contribute to the number of people at risk.
+
+# Kaplan-Meier
+Here we instead use the Kaplan-Meier estimator following the same simulation study as for the Nelson-Aalen estimator to estimate the survival function. We use the property that $\hat{S}(t) = exp(-\hat{A}(t))$ and that a $95 \%$ confidence interval for the survival function is given by $CI(S(t)) = \hat{S}(t) \pm 1.96 \cdot \hat{S}(t)\cdot \hat{\sigma}_{N-A}$.
+
+```{r}
+Wbull10 <- data.frame(Time = rweibull(10, shape = 4.5, scale = 22.5), event = 1)
+Wbull100 <- data.frame(Time = rweibull(100, shape = 4.5, scale = 22.5), event = 1)
+Wbull200 <- data.frame(Time = rweibull(200, shape = 4.5, scale = 22.5), event = 1)
+Wbull500 <- data.frame(Time = rweibull(500, shape = 4.5, scale = 22.5), event = 1)
+Wbull1000 <- data.frame(Time = rweibull(1000, shape = 4.5, scale = 22.5), event = 1)
+
+
+Wbull10_no <- Wbull10 %>% 
+  arrange(Time) %>% 
+  mutate(Risk = length(Time)-(0:(length(Time)-1))) %>% 
+  mutate(NaEst = cumsum(1/Risk)) %>% 
+  mutate(std = cumsum(1/Risk^2)) %>% 
+  mutate(CIup = NaEst*exp(1.96*sqrt(std)/NaEst)) %>% 
+  mutate(CIlow = NaEst*exp(-1.96*sqrt(std)/NaEst)) %>% 
+  mutate(type = 'No Ties')
+
+Wbull100_no <- Wbull100 %>% 
+  arrange(Time) %>% 
+  mutate(Risk = length(Time)-0:((length(Time)-1))) %>% 
+  mutate(NaEst = cumsum(1/Risk)) %>% 
+  mutate(std = cumsum(1/Risk^2)) %>% 
+  mutate(CIup = NaEst*exp(1.96*sqrt(std)/NaEst)) %>% 
+  mutate(CIlow = NaEst*exp(-1.96*sqrt(std)/NaEst))%>% 
+  mutate(type = 'No Ties')
+
+Wbull200_no <- Wbull200 %>% 
+  arrange(Time) %>% 
+  mutate(Risk = length(Time)-0:(length(Time)-1)) %>% 
+  mutate(NaEst = cumsum(1/Risk)) %>% 
+  mutate(std = cumsum(1/Risk^2)) %>% 
+  mutate(CIup = NaEst*exp(1.96*sqrt(std)/NaEst)) %>% 
+  mutate(CIlow = NaEst*exp(-1.96*sqrt(std)/NaEst))%>% 
+  mutate(type = 'No Ties')
+
+Wbull500_no <- Wbull500 %>% 
+  arrange(Time) %>% 
+  mutate(Risk = length(Time)-0:(length(Time)-1)) %>% 
+  mutate(NaEst = cumsum(1/Risk)) %>% 
+  mutate(std = cumsum(1/Risk^2)) %>% 
+  mutate(CIup = NaEst*exp(1.96*sqrt(std)/NaEst)) %>% 
+  mutate(CIlow = NaEst*exp(-1.96*sqrt(std)/NaEst))%>% 
+  mutate(type = 'No Ties')
+
+Wbull1000_no <- Wbull1000 %>%  
+  arrange(Time) %>% 
+  mutate(Risk = length(Time)-0:(length(Time)-1)) %>% 
+  mutate(NaEst = cumsum(1/Risk)) %>% 
+  mutate(std = cumsum(1/Risk^2)) %>% 
+  mutate(CIup = NaEst*exp(1.96*sqrt(std)/NaEst)) %>% 
+  mutate(CIlow = NaEst*exp(-1.96*sqrt(std)/NaEst))%>% 
+  mutate(type = 'No Ties')
+```
+
+
+
+```{r, warning = FALSE}
+Wbull10a <- Wbull10 %>% 
+  mutate(Time = ceiling(Time*10)/10) %>% 
+  mutate(type = 'Ties')%>% 
+  arrange(Time) %>% 
+  mutate(Risk = length(Time)-0:(length(Time)-1)) %>% 
+  add_count(Time) %>% 
+  group_by(Time) %>% 
+  slice(which.min(Risk)) %>% 
+  ungroup %>% 
+  mutate(NaEst = cumsum(n/Risk))
+
+Wbull10_ties <- Wbull10a %>% 
+  mutate(std = cumsum((Risk-n)*n/(Risk^3))) %>% 
+  mutate(CIup = NaEst*exp(1.96*sqrt(std)/NaEst)) %>% 
+  mutate(CIlow = NaEst*exp(-1.96*sqrt(std)/NaEst))
+
+Wbull100a <- Wbull100 %>% 
+  mutate(Time = ceiling(Time*10)/10)%>% 
+  mutate(type = 'Ties')%>% 
+  arrange(Time) %>% 
+  mutate(Risk = length(Time)-0:(length(Time)-1)) %>% 
+  add_count(Time) %>% 
+  group_by(Time) %>% 
+  slice(which.min(Risk)) %>% 
+  ungroup %>% 
+  mutate(NaEst = cumsum(n/Risk))
+
+Wbull100_ties <- Wbull100a %>% 
+  mutate(std = cumsum((Risk-n)*n/(Risk^3))) %>% 
+  mutate(CIup = NaEst*exp(1.96*sqrt(std)/NaEst)) %>% 
+  mutate(CIlow = NaEst*exp(-1.96*sqrt(std)/NaEst))
+
+
+Wbull200a <- Wbull200 %>% 
+  mutate(Time = ceiling(Time*10)/10)%>% 
+  mutate(type = 'Ties')%>% 
+  arrange(Time) %>% 
+  mutate(Risk = length(Time)-0:(length(Time)-1)) %>% 
+  add_count(Time) %>% 
+  group_by(Time) %>% 
+  slice(which.min(Risk)) %>% 
+  ungroup %>% 
+  mutate(NaEst = cumsum(n/Risk))
+
+Wbull200_ties <- Wbull200a %>% 
+  mutate(std = cumsum((Risk-n)*n/(Risk^3))) %>% 
+  mutate(CIup = NaEst*exp(1.96*sqrt(std)/NaEst)) %>% 
+  mutate(CIlow = NaEst*exp(-1.96*sqrt(std)/NaEst))
+
+
+Wbull500a <- Wbull500 %>% 
+  mutate(Time = ceiling(Time*10)/10)%>% 
+  mutate(type = 'Ties')%>% 
+  arrange(Time) %>% 
+  mutate(Risk = length(Time)-0:(length(Time)-1)) %>% 
+  add_count(Time) %>% 
+  group_by(Time) %>% 
+  slice(which.min(Risk)) %>% 
+  ungroup %>% 
+  mutate(NaEst = cumsum(n/Risk))
+
+Wbull500_ties <- Wbull500a %>% 
+  mutate(std = cumsum((Risk-n)*n/(Risk^3))) %>% 
+  mutate(CIup = NaEst*exp(1.96*sqrt(std)/NaEst)) %>% 
+  mutate(CIlow = NaEst*exp(-1.96*sqrt(std)/NaEst))
+
+
+Wbull1000a <- Wbull1000 %>% 
+  mutate(Time = ceiling(Time*10)/10)%>% 
+  mutate(type = 'Ties')%>% 
+  arrange(Time) %>% 
+  mutate(Risk = length(Time)-0:(length(Time)-1)) %>% 
+  add_count(Time) %>% 
+  group_by(Time) %>% 
+  slice(which.min(Risk)) %>% 
+  ungroup %>% 
+  mutate(NaEst = cumsum(n/Risk))
+
+Wbull1000_ties <- Wbull1000a %>% 
+  mutate(std = cumsum((Risk-n)*n/(Risk^3))) %>% 
+  mutate(CIup = NaEst*exp(1.96*sqrt(std)/NaEst)) %>% 
+  mutate(CIlow = NaEst*exp(-1.96*sqrt(std)/NaEst))
+
+Wbull10_int <- Wbull10 %>% 
+  mutate(NaEst = -log(exp(-(Time/22.5)^(4.5)))) %>% 
+  mutate(type = 'True A(t)')
+
+Wbull100_int <- Wbull100 %>% 
+  mutate(NaEst = -log(exp(-(Time/22.5)^(4.5)))) %>% 
+  mutate(type = 'True A(t)')
+
+Wbull200_int <- Wbull200 %>% 
+  mutate(NaEst = -log(exp(-(Time/22.5)^(4.5)))) %>% 
+  mutate(type = 'True A(t)')
+
+Wbull500_int <- Wbull500 %>% 
+  mutate(NaEst = -log(exp(-(Time/22.5)^(4.5)))) %>% 
+  mutate(type = 'True A(t)')
+
+Wbull1000_int <- Wbull1000 %>% 
+  mutate(NaEst = -log(exp(-(Time/22.5)^(4.5)))) %>% 
+  mutate(type = 'True A(t)')
+
+joined_10 <- full_join(Wbull10_no, Wbull10_ties,by = c("Time", "event", "NaEst", "Risk", "std", "CIup", "CIlow", "type")) %>%
+  full_join(Wbull10_int,by = c("Time", "event", "NaEst", "type"))
+joined_100 <- full_join(Wbull100_no, Wbull100_ties,by = c("Time", "event", "NaEst", "Risk", "std", "CIup", "CIlow", "type")) %>%
+  full_join(Wbull100_int,by = c("Time", "event", "NaEst", "type"))
+joined_200 <- full_join(Wbull200_no, Wbull200_ties,by = c("Time", "event", "NaEst", "Risk", "std", "CIup", "CIlow", "type")) %>%
+  full_join(Wbull200_int,by = c("Time", "event", "NaEst", "type"))
+joined_500 <- full_join(Wbull500_no, Wbull500_ties,by = c("Time", "event", "NaEst", "Risk", "std", "CIup", "CIlow", "type")) %>%
+  full_join(Wbull500_int,by = c("Time", "event", "NaEst", "type"))
+joined_1000 <- full_join(Wbull1000_no, Wbull1000_ties,by = c("Time", "event", "NaEst", "Risk", "std", "CIup", "CIlow", "type")) %>%
+  full_join(Wbull1000_int,by = c("Time", "event", "NaEst", "type"))
+
+ggplot(data = joined_10, aes(x = Time, y = NaEst, col = type)) + 
+  geom_line() +
+  geom_ribbon(aes(ymin = CIlow, ymax = CIup), linetype = 2, alpha = .1) +
+  labs(title = "Figure 1: Nelson-Aalen estimate for weibull distributed times n=10")
+
+ggplot(data = joined_100, aes(x = Time, y = NaEst, col = type)) + 
+  geom_line() +
+  geom_ribbon(aes(ymin = CIlow, ymax = CIup), linetype = 2, alpha = .1) +
+  labs(title = "Figure 2: Nelson-Aalen estimate for weibull distributed times n=100")
+
+ggplot(data = joined_200, aes(x = Time, y = NaEst, col = type)) + 
+  geom_line() +
+  geom_ribbon(aes(ymin = CIlow, ymax = CIup), linetype = 2, alpha = .1) +
+  labs(title = "Figure 3: Nelson-Aalen estimate for weibull distributed times n=200")
+
+ggplot(data = joined_500, aes(x = Time, y = NaEst, col = type)) + 
+  geom_line() +
+  geom_ribbon(aes(ymin = CIlow, ymax = CIup), linetype = 2, alpha = .1) +
+  labs(title = "Figure 4: Nelson-Aalen estimate for weibull distributed times n=500")
+
+ggplot(data = joined_1000, aes(x = Time, y = NaEst, col = type)) + 
+  geom_line() +
+  geom_ribbon(aes(ymin = CIlow, ymax = CIup), linetype = 2, alpha = .1) +
+  labs(title = "Figure 5: Nelson-Aalen estimate for weibull distributed times n=1000")
+```
+
+```{r, warning = FALSE}
+expo_10 <- rexp(10, 1/80)
+expo_100 <- rexp(100, 1/80)
+expo_200 <- rexp(200, 1/80)
+expo_500 <- rexp(500, 1/80)
+expo_1000 <- rexp(1000, 1/80)
+
+
+#n = 10
+cens_10 <- Wbull10 %>% 
+  mutate(cens_time = expo_10) %>% 
+  mutate(cens_ind = ifelse(cens_time > Time, 1, 0))
+cens_10 <- cens_10 %>% 
+  mutate(Time = ifelse(cens_ind == 1, Time, cens_time)) %>% 
+  arrange(Time) %>% 
+  mutate(Risk = length(Time)-0:(length(Time)-1)) %>% 
+    mutate(NaEst = cumsum(cens_ind/Risk)) %>% 
+  mutate(std = cumsum(cens_ind/Risk^2)) %>% 
+  mutate(CIup = NaEst*exp(1.96*sqrt(std)/NaEst)) %>% 
+  mutate(CIlow = NaEst*exp(-1.96*sqrt(std)/NaEst)) %>% 
+  mutate(type = "No ties")
+cens_10_t <- cens_10 %>% 
+  mutate(Time = ceiling(Time*10)/10)%>% 
+  mutate(type = 'Ties')%>% 
+  arrange(Time) %>% 
+  mutate(Risk = length(Time)-0:(length(Time)-1)) %>% 
+  add_count(Time, cens_ind) %>% 
+  group_by(Time, cens_ind) %>% 
+  slice(which.min(Risk)) %>% 
+  ungroup %>% 
+  arrange(desc(Risk)) %>% 
+    mutate(NaEst = cumsum(cens_ind*n/Risk)) %>%
+  mutate(std = cumsum(cens_ind*(Risk-n)*n/(Risk^3))) %>% 
+  mutate(CIup = NaEst*exp(1.96*sqrt(std)/NaEst)) %>% 
+  mutate(CIlow = NaEst*exp(-1.96*sqrt(std)/NaEst))
+
+cens_10_int <- Wbull10 %>% 
+  arrange(Time) %>% 
+  mutate(NaEst = -log(exp(-(Time/22.5)^(4.5)))) %>% 
+  mutate(type = "True A(t)")
+cens_10_int_r <- Wbull10 %>% 
+  arrange(Time) %>% 
+  mutate(cens_time = expo_10) %>% 
+  mutate(cens_ind = ifelse(cens_time > Time, 1, 0)) %>%
+  mutate(Time = ifelse(cens_ind == 1, Time, cens_time)) %>% 
+  arrange(Time) %>% 
+  mutate(type = "True A(t) (Censored data Removed)") %>% 
+  filter(cens_ind == 1)
+fit10 <- fitdistr(cens_10_int_r$Time, densfun = "weibull")
+
+
+
+cens_joined_10 <- full_join(cens_10, cens_10_t, by = c("Time", "event", "NaEst", "Risk", "std", "CIup", "CIlow", "type", "cens_time", "cens_ind")) %>% 
+  full_join(cens_10_int, by = c("Time", "event", "NaEst", "type"))
+
+ggplot(data = cens_joined_10, aes(x = Time, y = NaEst, col = type)) + 
+  geom_line() +
+  geom_ribbon(aes(ymin = CIlow, ymax = CIup), linetype = 2, alpha = .1) +
+  geom_line(aes(x = cens_joined_10$Time, y = -log(1-pweibull(cens_joined_10$Time, fit10$estimate["shape"], fit10$estimate["scale"]))), color = "Orange")+
+  labs(title = "Figure 6: Nelson-Aalen estimate for weibull distributed times n=10 with censoring")
+
+
+#n = 100
+cens_100 <- Wbull100 %>% 
+  mutate(cens_time = expo_100) %>% 
+  mutate(cens_ind = ifelse(cens_time > Time, 1, 0))
+cens_100 <- cens_100 %>% 
+  mutate(Time = ifelse(cens_ind == 1, Time, cens_time)) %>% 
+  arrange(Time) %>% 
+  mutate(Risk = length(Time)-0:(length(Time)-1)) %>% 
+    mutate(NaEst = cumsum(cens_ind/Risk)) %>% 
+  mutate(std = cumsum(cens_ind/Risk^2)) %>% 
+  mutate(CIup = NaEst*exp(1.96*sqrt(std)/NaEst)) %>% 
+  mutate(CIlow = NaEst*exp(-1.96*sqrt(std)/NaEst)) %>% 
+  mutate(type = "No ties")
+cens_100_t <- cens_100 %>%
+  mutate(Time = ceiling(Time*10)/10)%>% 
+  mutate(type = 'Ties')%>% 
+  arrange(Time) %>% 
+  mutate(Risk = length(Time)-0:(length(Time)-1)) %>% 
+  add_count(Time, cens_ind) %>% 
+  group_by(Time, cens_ind) %>% 
+  slice(which.min(Risk)) %>% 
+  ungroup %>% 
+  arrange(desc(Risk)) %>% 
+    mutate(NaEst = cumsum(cens_ind*n/Risk)) %>%
+  mutate(std = cumsum(cens_ind*(Risk-n)*n/(Risk^3))) %>% 
+  mutate(CIup = NaEst*exp(1.96*sqrt(std)/NaEst)) %>% 
+  mutate(CIlow = NaEst*exp(-1.96*sqrt(std)/NaEst)) 
+cens_100_int <- Wbull100 %>% 
+  arrange(Time) %>% 
+  mutate(NaEst = -log(exp(-(Time/22.5)^(4.5)))) %>% 
+  mutate(type = "True A(t)")
+cens_100_int_r <- Wbull100 %>% 
+  arrange(Time) %>% 
+  mutate(cens_time = expo_100) %>% 
+  mutate(cens_ind = ifelse(cens_time > Time, 1, 0)) %>%
+  mutate(Time = ifelse(cens_ind == 1, Time, cens_time)) %>% 
+  arrange(Time) %>% 
+  mutate(type = "True A(t) (Censored data Removed)") %>% 
+    filter(cens_ind == 1)
+fit100 <- fitdistr(cens_100_int_r$Time, densfun = "weibull")
+
+
+cens_joined_100 <- full_join(cens_100, cens_100_t, by = c("Time", "event", "NaEst", "Risk", "std", "CIup", "CIlow", "type", "cens_time", "cens_ind")) %>% 
+  full_join(cens_100_int, by = c("Time", "event", "NaEst", "type"))
+
+ggplot(data = cens_joined_100, aes(x = Time, y = NaEst, col = type)) + 
+  geom_line() +
+  geom_ribbon(aes(ymin = CIlow, ymax = CIup), linetype = 2, alpha = .1) +
+  geom_line(aes(x = cens_joined_100$Time, y = -log(1-pweibull(cens_joined_100$Time, fit100$estimate["shape"], fit100$estimate["scale"]))), color = "Orange")+
+  labs(title = "Figure 7: Nelson-Aalen estimate for weibull distributed times n=100 with censoring")
+```
+
+```{r}
+#n = 200
+cens_200 <- Wbull200 %>% 
+  mutate(cens_time = expo_200) %>% 
+  mutate(cens_ind = ifelse(cens_time > Time, 1, 0))
+cens_200 <- cens_200 %>% 
+  mutate(Time = ifelse(cens_ind == 1, Time, cens_time)) %>% 
+  arrange(Time) %>% 
+  mutate(Risk = length(Time)-0:(length(Time)-1)) %>% 
+    mutate(NaEst = cumsum(cens_ind/Risk)) %>% 
+  mutate(std = cumsum(cens_ind/Risk^2)) %>% 
+  mutate(CIup = NaEst*exp(1.96*sqrt(std)/NaEst)) %>% 
+  mutate(CIlow = NaEst*exp(-1.96*sqrt(std)/NaEst)) %>% 
+  mutate(type = "No ties")
+cens_200_t <- cens_200 %>%
+  mutate(Time = ceiling(Time*10)/10)%>% 
+  mutate(type = 'Ties')%>% 
+  arrange(Time) %>% 
+  mutate(Risk = length(Time)-0:(length(Time)-1)) %>% 
+  add_count(Time, cens_ind) %>% 
+  group_by(Time, cens_ind) %>% 
+  slice(which.min(Risk)) %>% 
+  ungroup %>% 
+  arrange(desc(Risk)) %>% 
+    mutate(NaEst = cumsum(cens_ind*n/Risk)) %>%
+  mutate(std = cumsum(cens_ind*(Risk-n)*n/(Risk^3))) %>% 
+  mutate(CIup = NaEst*exp(1.96*sqrt(std)/NaEst)) %>% 
+  mutate(CIlow = NaEst*exp(-1.96*sqrt(std)/NaEst)) 
+cens_200_int <- Wbull200 %>% 
+  arrange(Time) %>% 
+  mutate(NaEst = -log(exp(-(Time/22.5)^(4.5)))) %>% 
+  mutate(type = "True A(t)")
+cens_200_int_r <- Wbull200 %>% 
+  arrange(Time) %>% 
+  mutate(cens_time = expo_200) %>% 
+  mutate(cens_ind = ifelse(cens_time > Time, 1, 0)) %>%
+  mutate(Time = ifelse(cens_ind == 1, Time, cens_time)) %>% 
+  arrange(Time) %>% 
+  mutate(type = "True A(t) (Censored data Removed)") %>% 
+    filter(cens_ind == 1)
+fit200 <- fitdistr(cens_200_int_r$Time, densfun = "weibull")
+
+
+cens_joined_200 <- full_join(cens_200, cens_200_t, by = c("Time", "event", "NaEst", "Risk", "std", "CIup", "CIlow", "type", "cens_time", "cens_ind")) %>% 
+  full_join(cens_200_int, by = c("Time", "event", "NaEst", "type"))
+
+ggplot(data = cens_joined_200, aes(x = Time, y = NaEst, col = type)) + 
+  geom_line() +
+  geom_ribbon(aes(ymin = CIlow, ymax = CIup), linetype = 2, alpha = .1) +
+  geom_line(aes(x = cens_joined_200$Time, y = -log(1-pweibull(cens_joined_200$Time, fit200$estimate["shape"], fit200$estimate["scale"]))), color = "Orange")+
+  labs(title = "Figure 8: Nelson-Aalen estimate for weibull distributed times n=200 with censoring")
+
+
+#n = 500
+cens_500 <- Wbull500 %>% 
+  mutate(cens_time = expo_500) %>% 
+  mutate(cens_ind = ifelse(cens_time > Time, 1, 0))
+cens_500 <- cens_500 %>% 
+  mutate(Time = ifelse(cens_ind == 1, Time, cens_time)) %>% 
+  arrange(Time) %>% 
+  mutate(Risk = length(Time)-0:(length(Time)-1)) %>%
+  mutate(NaEst = cumsum(cens_ind/Risk)) %>% 
+  mutate(std = cumsum(cens_ind/Risk^2)) %>% 
+  mutate(CIup = NaEst*exp(1.96*sqrt(std)/NaEst)) %>% 
+    mutate(CIlow = NaEst*exp(-1.96*sqrt(std)/NaEst)) %>% 
+  mutate(type = "No ties")
+cens_500_t <- cens_500 %>%
+  mutate(Time = ceiling(Time*10)/10)%>% 
+  mutate(type = 'Ties')%>% 
+  arrange(Time) %>% 
+  mutate(Risk = length(Time)-0:(length(Time)-1)) %>% 
+  add_count(Time, cens_ind) %>% 
+  group_by(Time, cens_ind) %>% 
+  slice(which.min(Risk)) %>% 
+  ungroup %>% 
+  arrange(desc(Risk)) %>% 
+    mutate(NaEst = cumsum(cens_ind*n/Risk)) %>%
+  mutate(std = cumsum(cens_ind*(Risk-n)*n/(Risk^3))) %>% 
+  mutate(CIup = NaEst*exp(1.96*sqrt(std)/NaEst)) %>% 
+  mutate(CIlow = NaEst*exp(-1.96*sqrt(std)/NaEst))
+cens_500_int <- Wbull500 %>% 
+  arrange(Time) %>% 
+  mutate(NaEst = -log(exp(-(Time/22.5)^(4.5))))%>% 
+  mutate(type = "True A(t)")
+cens_500_int_r <- Wbull500 %>% 
+  arrange(Time) %>% 
+  mutate(cens_time = expo_500) %>% 
+  mutate(cens_ind = ifelse(cens_time > Time, 1, 0)) %>%
+  mutate(Time = ifelse(cens_ind == 1, Time, cens_time)) %>% 
+  arrange(Time) %>% 
+  filter(cens_ind == 1)
+fit500 <- fitdistr(cens_500_int_r$Time, densfun = "weibull")
+
+
+cens_joined_500 <- full_join(cens_500, cens_500_t, by = c("Time", "event", "NaEst", "Risk", "std", "CIup", "CIlow", "type", "cens_time", "cens_ind")) %>% 
+  full_join(cens_500_int, by = c("Time", "event", "NaEst", "type"))
+
+ggplot(data = cens_joined_500, aes(x = Time, y = NaEst, col = type)) + 
+  geom_line() +
+  geom_ribbon(aes(ymin = CIlow, ymax = CIup), linetype = 2, alpha = .1) +
+  geom_line(aes(x = cens_joined_500$Time, y = -log(1-pweibull(cens_joined_500$Time, fit500$estimate["shape"], fit500$estimate["scale"]))), color = "Orange")+
+  labs(title = "Figure 9: Nelson-Aalen estimate for weibull distributed times n=500 with censoring")
+
+
+
+
+
+#n = 1000
+
+cens_1000 <- Wbull1000 %>% 
+  mutate(cens_time = expo_1000) %>% 
+  mutate(cens_ind = ifelse(cens_time > Time, 1, 0))
+cens_1000 <- cens_1000 %>% 
+  mutate(Time = ifelse(cens_ind == 1, Time, cens_time)) %>% 
+  arrange(Time) %>% 
+  mutate(Risk = length(Time)-0:(length(Time)-1)) %>% 
+  mutate(NaEst = cumsum(cens_ind/Risk)) %>% 
+  mutate(std = cumsum(cens_ind/Risk^2)) %>% 
+  mutate(CIup = NaEst*exp(1.96*sqrt(std)/NaEst)) %>% 
+  mutate(CIlow = NaEst*exp(-1.96*sqrt(std)/NaEst)) %>% 
+  mutate(type = "No ties")
+cens_1000_t <- cens_1000 %>%
+  mutate(Time = ceiling(Time*10)/10)%>% 
+  mutate(type = 'Ties')%>% 
+  arrange(Time) %>% 
+  mutate(Risk = length(Time)-0:(length(Time)-1)) %>% 
+  add_count(Time, cens_ind) %>% 
+  group_by(Time, cens_ind) %>% 
+  slice(which.min(Risk)) %>% 
+  ungroup %>% 
+  arrange(desc(Risk)) %>% 
+    mutate(NaEst = cumsum(cens_ind*n/Risk)) %>%
+  mutate(std = cumsum(cens_ind*(Risk-n)*n/(Risk^3))) %>% 
+  mutate(CIup = NaEst*exp(1.96*sqrt(std)/NaEst)) %>% 
+  mutate(CIlow = NaEst*exp(-1.96*sqrt(std)/NaEst)) 
+cens_1000_int <- Wbull1000 %>% 
+  arrange(Time) %>% 
+  mutate(NaEst = -log(exp(-(Time/22.5)^(4.5))))%>% 
+  mutate(type = "True A(t)")
+cens_1000_int_r <- Wbull1000 %>% 
+  arrange(Time) %>% 
+  mutate(cens_time = expo_1000) %>% 
+  mutate(cens_ind = ifelse(cens_time > Time, 1, 0)) %>%
+  mutate(Time = ifelse(cens_ind == 1, Time, cens_time)) %>% 
+  arrange(Time) %>% 
+  mutate(type = "True A(t) (Censored data Removed)") %>%
+    filter(cens_ind == 1) 
+fit1000 <- fitdistr(cens_1000_int_r$Time, densfun = "weibull")
+
+
+
+cens_joined_1000 <- full_join(cens_1000, cens_1000_t, by = c("Time", "event", "NaEst", "Risk", "std", "CIup", "CIlow", "type", "cens_time", "cens_ind")) %>% 
+  full_join(cens_1000_int, by = c("Time", "event", "NaEst", "type"))
+
+ggplot(data = cens_joined_1000, aes(x = Time, y = NaEst, col = type)) + 
+  geom_line() +
+  geom_ribbon(aes(ymin = CIlow, ymax = CIup), linetype = 2, alpha = .1) +
+geom_line(aes(x = cens_joined_1000$Time, y = -log(1-pweibull(cens_joined_1000$Time, fit1000$estimate["shape"], fit1000$estimate["scale"]))), color = "Orange")+
+  labs(title = "Figure 10: Nelson-Aalen estimate for weibull distributed times n=1000 with censoring")
+```
+
+
+
+
+```{r}
+KA_10 <- joined_10 %>% 
+  mutate(SurvEst = exp(-NaEst)) %>% 
+  mutate(CIup = SurvEst + 1.96*SurvEst*sqrt(std)) %>% 
+  mutate(CIlow = SurvEst - 1.96*SurvEst*sqrt(std))
+KA_100 <- joined_100 %>% 
+  mutate(SurvEst = exp(-NaEst))%>% 
+  mutate(CIup = SurvEst + 1.96*SurvEst*sqrt(std)) %>% 
+  mutate(CIlow = SurvEst - 1.96*SurvEst*sqrt(std))
+KA_200 <- joined_200 %>% 
+  mutate(SurvEst = exp(-NaEst))%>% 
+  mutate(CIup = SurvEst + 1.96*SurvEst*sqrt(std)) %>% 
+  mutate(CIlow = SurvEst - 1.96*SurvEst*sqrt(std))
+KA_500 <- joined_500 %>% 
+  mutate(SurvEst = exp(-NaEst))%>% 
+  mutate(CIup = SurvEst + 1.96*SurvEst*sqrt(std)) %>% 
+  mutate(CIlow = SurvEst - 1.96*SurvEst*sqrt(std))
+KA_1000 <- joined_1000 %>% 
+  mutate(SurvEst = exp(-NaEst))%>% 
+  mutate(CIup = SurvEst + 1.96*SurvEst*sqrt(std)) %>% 
+  mutate(CIlow = SurvEst - 1.96*SurvEst*sqrt(std))
+
+
+
+ggplot(data = KA_10, aes(x = Time, y = SurvEst, col = type)) + 
+  geom_line() +
+  geom_ribbon(aes(ymin = CIlow, ymax = CIup), linetype = 2, alpha = .1) +
+  labs(title = "Figure 11: Kaplan-Meier estimate for weibull distributed times n=10")
+
+ggplot(data = KA_100, aes(x = Time, y = SurvEst, col = type)) + 
+  geom_line() +
+  geom_ribbon(aes(ymin = CIlow, ymax = CIup), linetype = 2, alpha = .1) +
+  labs(title = "Figure 12: Kaplan-Meier estimate for weibull distributed times n=100")
+
+ggplot(data = KA_200, aes(x = Time, y = SurvEst, col = type)) + 
+  geom_line() +
+  geom_ribbon(aes(ymin = CIlow, ymax = CIup), linetype = 2, alpha = .1) +
+  labs(title = "Figure 13: Kaplan-Meier estimate for weibull distributed times n=200")
+
+ggplot(data = KA_500, aes(x = Time, y = SurvEst, col = type)) + 
+  geom_line() +
+  geom_ribbon(aes(ymin = CIlow, ymax = CIup), linetype = 2, alpha = .1) +
+  labs(title = "Figure 14: Kaplan-Meier estimate for weibull distributed times n=500")
+
+ggplot(data = KA_1000, aes(x = Time, y = SurvEst, col = type)) + 
+  geom_line() +
+  geom_ribbon(aes(ymin = CIlow, ymax = CIup), linetype = 2, alpha = .1) +
+  labs(title = "Figure 15: Kaplan-Meier estimate for weibull distributed times n=1000")
+
+
+
+```
+
+## Part 2
+
+```{r}
+KA_10cens <- cens_joined_10 %>% 
+  mutate(SurvEst = exp(-NaEst)) %>% 
+  mutate(CIup = SurvEst + 1.96*SurvEst*sqrt(std)) %>% 
+  mutate(CIlow = SurvEst - 1.96*SurvEst*sqrt(std))
+KA_100cens <- cens_joined_100 %>% 
+  mutate(SurvEst = exp(-NaEst))%>% 
+  mutate(CIup = SurvEst + 1.96*SurvEst*sqrt(std)) %>% 
+  mutate(CIlow = SurvEst - 1.96*SurvEst*sqrt(std))
+KA_200cens <- cens_joined_200 %>% 
+  mutate(SurvEst = exp(-NaEst))%>% 
+  mutate(CIup = SurvEst + 1.96*SurvEst*sqrt(std)) %>% 
+  mutate(CIlow = SurvEst - 1.96*SurvEst*sqrt(std))
+KA_500cens <- cens_joined_500 %>% 
+  mutate(SurvEst = exp(-NaEst))%>% 
+  mutate(CIup = SurvEst + 1.96*SurvEst*sqrt(std)) %>% 
+  mutate(CIlow = SurvEst - 1.96*SurvEst*sqrt(std))
+KA_1000cens <- cens_joined_1000 %>% 
+  mutate(SurvEst = exp(-NaEst))%>% 
+  mutate(CIup = SurvEst + 1.96*SurvEst*sqrt(std)) %>% 
+  mutate(CIlow = SurvEst - 1.96*SurvEst*sqrt(std))
+
+
+
+ggplot(data = KA_10cens, aes(x = Time, y = SurvEst, col = type)) + 
+  geom_line() +
+  geom_ribbon(aes(ymin = CIlow, ymax = CIup), linetype = 2, alpha = .1) +
+  geom_line(aes(x = cens_joined_10$Time, y = 1-pweibull(cens_joined_10$Time, fit10$estimate["shape"], fit10$estimate["scale"])), color = "Orange") +
+  labs(title = "Figure 16: Kaplan-Meier estimate for weibull distributed times n=10 with censoring")
+
+ggplot(data = KA_100cens, aes(x = Time, y = SurvEst, col = type)) + 
+  geom_line() +
+  geom_ribbon(aes(ymin = CIlow, ymax = CIup), linetype = 2, alpha = .1) +
+  geom_line(aes(x = cens_joined_100$Time, y = 1-pweibull(cens_joined_100$Time, fit100$estimate["shape"], fit100$estimate["scale"])), color = "Orange") +
+  labs(title = "Figure 17: Kaplan-Meierestimate for weibull distributed times n=100 with censoring")
+
+ggplot(data = KA_200cens, aes(x = Time, y = SurvEst, col = type)) + 
+  geom_line() +
+  geom_ribbon(aes(ymin = CIlow, ymax = CIup), linetype = 2, alpha = .1) +
+  geom_line(aes(x = cens_joined_200$Time, y = 1-pweibull(cens_joined_200$Time, fit200$estimate["shape"], fit200$estimate["scale"])), color = "Orange") +
+  labs(title = "Figure 18: Kaplan-Meier estimate for weibull distributed times n=200 with censoring")
+
+ggplot(data = KA_500cens, aes(x = Time, y = SurvEst, col = type)) + 
+  geom_line() +
+  geom_ribbon(aes(ymin = CIlow, ymax = CIup), linetype = 2, alpha = .1) +
+  geom_line(aes(x = cens_joined_500$Time, y = 1-pweibull(cens_joined_500$Time, fit500$estimate["shape"], fit500$estimate["scale"])), color = "Orange") +
+  labs(title = "Figure 19: Kaplan-Meier estimate for weibull distributed times n=500 with censoring")
+
+ggplot(data = KA_1000cens, aes(x = Time, y = SurvEst, col = type)) + 
+  geom_line() +
+  geom_ribbon(aes(ymin = CIlow, ymax = CIup), linetype = 2, alpha = .1) +
+  geom_line(aes(x = cens_joined_1000$Time, y = 1-pweibull(cens_joined_1000$Time, fit1000$estimate["shape"], fit1000$estimate["scale"])), color = "Orange") +
+  labs(title = "Figure 20: Kaplan-Meier estimate for weibull distributed times n=1000 with censoring")
+
+
+```
+
+

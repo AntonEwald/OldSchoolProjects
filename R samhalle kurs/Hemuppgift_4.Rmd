@@ -1,0 +1,116 @@
+---
+title: "Hemuppgift_4"
+author: "Anton Holm"
+date: '2020-07-11'
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup}
+knitr::opts_chunk$set(echo = TRUE)
+
+suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(tidytext))
+```
+
+Nedan besvarar figurerna de frågor som efterfrågats. Figur 1 visar på lång varje regeringsförklaring är uppdelat på varje år. Figur 2 visar en TF-IDF analys utan att ta bort stopporden medan Figur 3 visar samma analys där stoppord är borttagna. Figur 4 visar sentiment värdet av regeringsförklaringarna uppdelat på år medan Figur 5 visar sentiment värdet för de 3 olika partierna. 
+
+```{r, warning = FALSE}
+#Hämtar regeringsförklaringarna
+regfor_all <- readRDS("~/R samhalle kurs/regfor_all.rds")
+
+#Tokeniserar regeringsförklaringarna
+regfor_token <- regfor_all %>% 
+  unnest_tokens(word, text)
+
+#Räknar antal ord per regeringsförklaring
+regfor_count <- regfor_token %>% 
+  group_by(year) %>% 
+  count()
+
+#Plottar Figur 1
+regfor_count %>% 
+  ggplot(aes(x = year, y = n)) +
+  geom_col(color = "Black", fill = "Blue") +
+  labs(title = "Figur 1: Antal ord för varje regeringsförklaring", x = 'Årtal', y = 'Antal ord')
+
+#Utför en TF-IDF analys utan att ta bort stopporden
+tf_idf_df <- regfor_all %>% 
+  unnest_tokens(word, text) %>% 
+  group_by(year) %>% 
+  count(word) %>% 
+  bind_tf_idf(word, year, n) %>% 
+  arrange(desc(tf_idf)) %>% 
+  slice(1:5) %>% 
+  ungroup %>% 
+  mutate(year = as.factor(year))
+
+#Plottar Figur 2
+tf_idf_df %>% 
+  ggplot(aes(x = word, y = tf_idf, fill = year)) +
+  geom_col() +
+  coord_flip() +
+  labs(title = "Figur 2: TF-IDF analys utav regeringsförklaringar", x = "Ord", y = "TF-IDF")
+
+#Hämtar svenska stoppord
+stoppordDahlgren <- readRDS("~/R samhalle kurs/stoppordDahlgren.rds")
+
+#Utför TF-IDF analysen där stoppord är borttagna
+tf_idf_stop <- regfor_all %>% 
+  unnest_tokens(word, text) %>% 
+  anti_join(stoppordDahlgren) %>% 
+  group_by(year) %>% 
+  count(word) %>% 
+  bind_tf_idf(word, year, n) %>% 
+  arrange(desc(tf_idf))%>% 
+  slice(1:5) %>% 
+  ungroup %>% 
+  mutate(year = as.factor(year))
+
+#Plottar Figur 3
+tf_idf_stop %>% 
+  ggplot(aes(x = word, y = tf_idf, fill = year)) +
+  geom_col() +
+  coord_flip()+
+  labs(title = "Figur 3: TF-IDF analys utav regeringsförklaringar utan stoppord", x = "Ord", y = "TF-IDF")
+
+#Hämtar ett svenskt sentimental lexikon
+swedish_sentiments <- readRDS("~/R samhalle kurs/swedish_sentiments.rds")
+
+#Sätter ihop dataframe innehållande regeringsförklaringarna tokeniserade med sentimental lexikonet.
+#På så sätt tilldelas varje ord ett sentimental värde. NA värden sätts till 0.
+Sentiments_joined <- regfor_token %>% 
+  left_join(swedish_sentiments, by = c("word" = "text")) %>% 
+  mutate(score = ifelse(is.na(score), 0, score))
+
+#Beräknar sentimental värdet uppdelat på år
+Sentiments_years <- Sentiments_joined %>% 
+  group_by(year) %>% 
+  summarise(Sentiment = sum(score))
+
+#Plottar Figur 4
+Sentiments_years %>% 
+  ggplot(aes(x = year, y = Sentiment)) +
+  geom_line() +
+  geom_point() +
+  labs(title = "Figur 4: Sentiment undersökning gentemot olika år", x = "Årtal", y = "Sentiment Värde")
+
+#Tillför en kolumn som förklarar vilket parti som talar.
+Sentiments_Party <- Sentiments_joined %>% 
+  mutate(Party = case_when(speaker == 'Fälldin' ~ 'C', speaker %in% c("Palme", "Carlsson", "Persson", "Löfven") ~ 'S', speaker == 'Reinfeldt' ~ 'M'))
+
+#Tar fram sentimental värdet för varje parti
+Party_scores <- Sentiments_Party %>% 
+  left_join(data.frame(table(Party = Sentiments_Party$Party))) %>% 
+  group_by(Party) %>% 
+  mutate(avg_score = score/Freq) %>% 
+  summarise(Party_Score = sum(avg_score))
+
+#Plottar Figur 5
+Party_scores %>% 
+  ggplot(aes(x = Party, y = Party_Score)) +
+  geom_col(fill = c("Darkgreen", "Lightblue3", "Red3")) +
+  labs(title = "Figur 5: Sentiment undersökning gentemot olika partier", x = "Parti", y = "Sentiment Värde")
+
+```

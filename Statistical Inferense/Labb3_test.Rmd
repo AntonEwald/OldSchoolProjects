@@ -1,0 +1,142 @@
+---
+title: "Labb3"
+author: "Anton Holm"
+date: "25 oktober 2019"
+output:
+  word_document: default
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(ggplot2)
+load("proj_data.Rdata")
+modell <- glm(Resultat ~ Alder + Kon + Utbildare, 
+              data = data_individ,
+              family = "binomial")
+summary(modell)
+
+
+source("functions.R")
+
+y <- matrix(data_individ$Resultat, ncol = 1)
+X <- model.matrix(Resultat ~ Alder + Kon + Utbildare, 
+                  data = data_individ)
+```
+
+Här tar vi fram AIC med formel från kurslitteratur och jämför med summary data och ser att de är lika.
+```{r}
+theta_ML <- NR(c(0,0,0,0),100, y,X)
+
+L_theta_ML <- L(theta_ML,dbinom,y,X)
+AIC <- -2*log(L_theta_ML)+2*length((theta_ML))
+AIC
+
+```
+
+Nedan tar vi fram samma resultat baserat på leave-one-out cross validation istället där $-\frac{1}{2}AIC=n\cdot\hat{K}cv$ där $\hat{K}cv$ är cross-validated average log-likelihood.
+
+```{r}
+sum <- 0
+
+for (i in 1:nrow(X)){
+  theta_LOO <- NR(c(0,0,0,0),10,y[-i],X[-i,]) 
+  sum <- sum + log(L(theta_LOO,dbinom,y[i],X[i,]))
+}
+sum*(-2)
+```
+
+##Task2
+
+Nedan följer kod och en funktion för att ta fram posterior fördelningen genom formel på sida 170 i kurslitteraturen samt utförda testet från uppgiften som bekräftar att funktionen stämmer.
+```{r}
+sigma <- diag(c(100,100,100,100))
+mu <- c(0,0,0,0)
+
+prior <- function(k,x){
+  ((2*pi)^(k/2)) * (1/(sqrt(det(sigma))))*exp(-(1/2 * t(x-mu)%*%solve(sigma)%*%(x-mu)))}
+
+post <- function(theta,dist,y,X,k){
+  return(L(theta,dist,y,X) * prior(k,theta))
+}
+
+Xtest <- cbind(1, 18:25, rep(c(0, 1), 4), rep(c(1, 1, 0, 0), 2))
+ytest <- c(rep(TRUE, 4), rep(FALSE, 4))
+(post(c(260, -10, 10, -20),dbinom, ytest, Xtest,4))/(post(c(270, -15, 15, -25),dbinom, ytest , Xtest,4))
+```
+
+##Task3
+
+Nedan implementerar vi Metropolis-Hastings algorithm och drar 10000 vektorer utav $\theta$ från posterior fördelningen. Sedan plottas varje parameter i vektorn på två olika sätt. 
+```{r}
+
+thetamatrix <- matrix(nrow=10000, ncol=4)
+thetamatrix[1,] <- theta_ML
+steglangd <- Std_er(theta_ML,y,X)
+for (i in 2:10000){
+  theta.star <- thetamatrix[i-1,] + rnorm(4)*steglangd
+  if (post(theta.star,dbinom, y,X,4)/post(thetamatrix[i-1,],dbinom,y,X,4) > runif(1))
+    thetamatrix[i,] <- theta.star 
+  else
+    thetamatrix[i,]<-thetamatrix[i-1,]
+}
+
+
+plot(x=seq(1:10000),y=thetamatrix[,1], lines(seq(1:10000),thetamatrix[,1]),pch=".")
+plot(x=seq(1:10000),y=thetamatrix[,2], lines(seq(1:10000),thetamatrix[,2]),pch=".")
+plot(x=seq(1:10000),y=thetamatrix[,3], lines(seq(1:10000),thetamatrix[,3]),pch=".")
+plot(x=seq(1:10000),y=thetamatrix[,4], lines(seq(1:10000),thetamatrix[,4]),pch=".")
+
+hist(thetamatrix[,1])
+hist(thetamatrix[,2])
+hist(thetamatrix[,3])
+hist(thetamatrix[,4])
+```
+
+Nedan ser vi att de frekventiska respektive bayesianska resultaten ligger nära varandra.
+```{r}
+medelvarde <- c(mean(thetamatrix[,1]),mean(thetamatrix[,2]),mean(thetamatrix[,3]),mean(thetamatrix[,4]))
+medelvarde
+
+frek_medel <- c(theta_ML[1],theta_ML[2],theta_ML[3],theta_ML[4])
+
+frek_medel
+
+quantile1 <- quantile(thetamatrix[,1],prob=c(0.025,0.975))
+quantile2 <- quantile(thetamatrix[,2],prob=c(0.025,0.975))
+quantile3 <- quantile(thetamatrix[,3],prob=c(0.025,0.975))
+quantile4 <- quantile(thetamatrix[,4],prob=c(0.025,0.975))
+
+quantilem<- matrix(ncol=2,nrow=4)
+quantilem[1:4,] <- c(quantile1,quantile2,quantile3,quantile4)
+quantilem
+
+konf_int1 <- c(theta_ML[1] - 1.96*Se_theta.i(theta_ML,y,X,1), theta_ML[1] + 1.96*Se_theta.i(theta_ML,y,X,1))
+konf_int2 <- c(theta_ML[2] - 1.96*Se_theta.i(theta_ML,y,X,2), theta_ML[2] + 1.96*Se_theta.i(theta_ML,y,X,2))
+konf_int3 <- c(theta_ML[3] - 1.96*Se_theta.i(theta_ML,y,X,3), theta_ML[3] + 1.96*Se_theta.i(theta_ML,y,X,3))
+konf_int4 <- c(theta_ML[4] - 1.96*Se_theta.i(theta_ML,y,X,4), theta_ML[4] + 1.96*Se_theta.i(theta_ML,y,X,4))
+
+konf_int <- matrix(ncol=2,nrow=4)
+konf_int[1:4,] <- c(konf_int1,konf_int2,konf_int3,konf_int4)
+
+konf_int
+
+
+```
+
+
+Nedan följer kod som tar fram den approximativa sannolikheten att en person med mina egenskaper lyckas med testet där vi använt oss utav $x^\star$ istället. Detta ligger inom konfidensintervallet från labb 1 som var (0.344,0.400) så vi ser att detta stämmer.
+```{r}
+
+
+mytheta <- c(1,25,1,0)
+myprobs <- numeric(nrow(thetamatrix))
+for(i in 1:nrow(thetamatrix)){
+  myprobs[i]<- 1/(1+exp(-((thetamatrix[i,]%*%mytheta))))
+}
+mean(myprobs)
+```

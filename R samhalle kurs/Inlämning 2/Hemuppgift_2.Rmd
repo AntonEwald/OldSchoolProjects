@@ -1,0 +1,90 @@
+---
+title: "Holm_Anton_HU2"
+author: "Anton Holm"
+date: '2020-06-23'
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(scipen=999)
+```
+
+
+```{r}
+load("hu2_lifeexp.RData")
+
+suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(kableExtra))
+suppressPackageStartupMessages(library(stargazer))
+
+#Medelvärdet för alla numeriska kolumner
+hu2_lifeexp %>% 
+  summarise_if(is.numeric, mean)
+
+#Median
+hu2_lifeexp %>% 
+  summarise_if(is.numeric, median) 
+```
+
+```{r}
+
+#Histogram för alla numeriska kolumner
+hu2_lifeexp %>% 
+  select_if(is.numeric) %>% 
+  gather() %>% 
+  ggplot(aes(value)) +
+  geom_histogram(bins = 10) +
+  facet_wrap(~key, scales = 'free_x') +
+  labs(title = "Figur 1: Histogram över alla numeriska kolumner")
+  
+```
+
+
+```{r}
+#Tar fram plottar för alla 3 kombinationer inklusive regressionslinjen beräknad med MK-metoden.
+
+hu2_lifeexp %>% 
+  ggplot(aes(x = life_expectancy, y = gdp)) +
+  geom_point() +
+  labs(title = "Figur 2: Punktdiagram mellan gdp och förväntad livslängd", x = "Förväntad Livslängd", y = "GDP") +
+  geom_smooth(method = "lm")
+
+hu2_lifeexp %>% 
+  ggplot(aes(x = life_expectancy, y = gini)) +
+  geom_point() +
+  labs(title = "Figur 3: Punktdiagram mellan gdp och förväntad livslängd", x = "Förväntad Livslängd", y = "gini") +
+  geom_smooth(method = "lm")
+
+hu2_lifeexp %>% 
+  ggplot(aes(x = gdp, y = gini)) +
+  geom_point() +
+  labs(title = "Figur 4: Punktdiagram mellan gdp och förväntad livslängd", x = "GDP", y = "gini") +
+  geom_smooth(method = "lm")
+```
+
+
+```{r}
+#tar fram regressionsmodeller för de efterfrågade kombinationerna
+lm(data = hu2_lifeexp, life_expectancy ~ gdp)
+lm(data = hu2_lifeexp, life_expectancy ~ gini)
+lm(data = hu2_lifeexp, gdp ~ gini)
+```
+Regressionsmodellen då livslängd är responsvariabel och gdp är kovariat får vi som $y = 65.74 + 0.0003655 \cdot x$, då gini fungerar som kovariat får vi istället $y = 90.26 -0.4778x$ och tillsist då gdp är responsvariabeln och gini kovariat får vi regressionsmodellen $y = 46797 - 768x$.
+
+
+```{r mylatextable, results = "asis"}
+#Gör om dataframe till att endast inkludera numeriska kolumner för använding framöver
+numerics_df <- hu2_lifeexp %>% select_if(is.numeric)
+
+#skapar tom lista att spara modeller i
+list <- list()
+
+#loopar över varje kolumn, tar fram regressionsmodellen med livslängd som respons och kolumnen i fråga som kovariat och sparar i listan skapad ovan
+for(i in names(numerics_df[,-1])){
+  list[[i]] <- lm(life_expectancy~get(i), data = numerics_df)
+}
+
+#Skapar tabellen som visar alla regressionsmodeller
+stargazer(list[1:length(list)], column.labels = c("Gpd", "Health exp", "Child mort", "Women econ op", "Econ freedom", "Hdi", "Gini"), type = "latex", title = "Regression Table", column.sep.width = "-8pt")
+```

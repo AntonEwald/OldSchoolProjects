@@ -1,0 +1,433 @@
+---
+title: "Statistical learning (MT7038) - Project 1"
+author: Anton Holm
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse) # For data manipulation
+library(rpart) # For trees in later part
+library(rpart.plot) # For trees in later part
+theme_set(theme_minimal()) # ggplot theme
+```
+
+```{r, message=FALSE, warning=FALSE, echo = FALSE}
+# Import
+url <- "https://web.stanford.edu/~hastie/ElemStatLearn/datasets/prostate.data"
+prostate_raw <- read_tsv(url) %>% select(-X1)
+```
+
+
+```{r, message=FALSE, warning=FALSE, echo = FALSE}
+# Split into separate tables
+prostate_raw_train <- prostate_raw %>% 
+    filter(train) %>% 
+    select(-train)
+prostate_raw_test <- prostate_raw %>% 
+    filter(!train) %>% 
+    select(-train)
+```
+
+```{r, echo = FALSE}
+set.seed(931031)
+# Prepare by scaling and random reordering
+col_mean <- map(prostate_raw_train, mean)
+col_sd <- map(prostate_raw_train, sd)
+prostate_prep_train <- prostate_raw_train %>%
+    map2_df(col_mean, ~.x - .y) %>% # Remove mean
+    map2_df(col_sd, ~.x / .y) %>% # Divide by sd
+    slice(sample(1:n())) # Random reordering
+
+prostate_prep_test <- prostate_raw_test %>% 
+    map2_df(col_mean, ~.x - .y) %>% 
+    map2_df(col_sd, ~.x / .y)
+```
+
+***
+
+**Task 1**
+
+Most often, the reason to why you want to standardize your data is due to the fact that the range of the different variables are very different in size and thus will end up having different weights of contribution to the model. It is also useful if the data are in different units, for example different currency or measurments. When subtracting the mean and dividing by the standard deviation we end up with data where each variable has mean and standard deviation equal to $0$ and $1$ respectively. This is convenient since the intercept in this case will be zero and thus we do not have to consider it in our model. 
+
+***
+
+```{r, echo = FALSE}
+cv_fold <- function(data, n_fold){
+    # fold_id denotes in which fold the observation
+    # belongs to the test set
+    data <- mutate(data, fold_id = rep_len(1:n_fold, length.out = n()))
+    # Two functions to split data into train and test sets
+    cv_train <- function(fold, data){
+        filter(data, fold_id != fold) %>% 
+            select(- fold_id)
+    }
+    cv_test <- function(fold, data){
+        filter(data, fold_id == fold) %>% 
+            select(- fold_id)
+    }
+    # Folding
+    tibble(fold = 1:n_fold) %>% 
+        mutate(train = map(fold, ~cv_train(.x, data)),
+               test = map(fold, ~cv_test(.x, data)),
+               fold = paste0("Fold", fold))
+}
+```
+
+```{r, echo = FALSE}
+n_fold <- 10
+cv_prostate <- cv_fold(prostate_prep_train, 10)
+```
+
+```{r, echo = FALSE}
+lm.ridge <- function(data, formula, lambda){
+    # Given data, model formula and shrinkage parameter lambda,
+    # this function returns a data.frame of estimated coefficients
+    X <- model.matrix(formula, data) # Exctract design matrix X
+    p <- ncol(X)
+    y <- model.frame(formula, data) %>% # Extract vector of responses y
+        model.extract("response")
+    # Compute parameter estimates (Eq. (3.44) in textbook)
+    R <- t(X) %*% X
+    solve(R + lambda * diag(p)) %*% t(X) %*% as.matrix(y) %>% 
+        as.data.frame() %>% 
+        setNames("estimate") %>% 
+        rownames_to_column("variable")
+}
+```
+
+```{r, echo = FALSE}
+predict.ridge <- function(newdata, fit, formula){
+    model.matrix(formula, data = newdata) %*% as.matrix(fit$estimate) %>% 
+        as.numeric()
+}
+```
+
+```{r, echo = FALSE}
+formula <- lpsa ~ -1 + .
+```
+
+```{r, echo = FALSE}
+lambda_seq <- exp(seq(0, log(10), length.out = 10))
+```
+
+```{r, echo = FALSE}
+model_df <- cv_prostate %>% 
+    # One row for each combination of lambda and fold
+    crossing(lambda = lambda_seq) %>% 
+    # Fit model to training data in each row
+    mutate(model_fit = map2(train, lambda, ~lm.ridge(.x, formula, .y)),
+           # Compute predicted values on test data
+           predicted = map2(test, model_fit, ~predict.ridge(.x, .y, formula)),
+           # Extract actual values from test data
+           actual = map(test, ~(model.frame(formula, .x) %>% 
+                                    model.extract("response"))),
+           # Compute mse 
+           mse = map2_dbl(predicted, actual, ~mean((.x - .y)^2)))
+
+
+```
+
+***
+
+**Task 2**
+
+We have kept the sequence of lambdas to be the same as in the instruction. The only change in code is added figure names and creation of Figure 2 as well as a change in seed. We can now plot the MSE as a function of lambda by taking the average of the MSE over each fold for each value of lambda.
+
+```{r}
+#Creates a plot of MSE as a function of Lambda
+model_df %>%
+    group_by(lambda) %>% 
+    summarise(mse = mean(mse)) %>% 
+    ggplot(aes(x = lambda, y = mse)) + 
+    geom_point() + 
+    geom_line() +
+    labs(title = "Figure 1: MSE as a function of Lambda")
+```
+
+By comparing Figure 1 with the graph in the instructions we can see that the two plots are very similar. The only difference is that the MSE in Figure 1 is scaled upwards slightly. However, the shape of the curve remains the same. Here we should also use error-bars for each lambda where the standard error is the standard deviation of the mse between each fold divided by the square root of the number of folds. However, since we are using 10-fold CV on a small dataset with only 67 observations, the variance between folds can become large. I produced the error bars but the variance of the mse between the folds were too big in contrast to the variance between lambdas and thus an illustration in this manner could be hard to interpret. However, this does show the instability of an optimal lambda due to the randomness of the folds. This is better illustrated in Figure 2 below.
+
+We can also pick out the optimal lambda of our 10 chosen ones, i.e. the one with the lowest MSE without using the one standard error rule.
+```{r}
+best_lambda <- model_df %>% 
+    group_by(lambda) %>% 
+    summarise(mse = mean(mse)) %>% 
+    top_n(1, -mse) %>% 
+    pull(lambda)
+best_lambda
+```
+
+We can see that the optimal lambda is the same in both cases (although would we decrease the interval between each lambda the estimates does differ slightly). Since lambda also depend on how the folds turns out, the optimal lambda will be different depending on which seed we use.
+
+Further it's possible to calculate the test MSE using the test data we put aside.
+```{r}
+best_model <- lm.ridge(prostate_prep_train, formula, best_lambda)
+
+prostate_prep_test %>% mutate(predicted = predict.ridge(., best_model, formula),
+                              actual = model.frame(formula, .) %>% 
+                                  model.extract("response")) %>%
+    summarise(mse = mean((predicted - actual)^2))
+```
+
+To get a better illustration of how lambda depends on the randomness in choosing the different folds we can plot the MSE for each lambda in each fold.
+```{r}
+model_df %>%
+    ggplot(aes(x = lambda, y = mse, col = fold)) + 
+    geom_point() + 
+    labs(title = "Figure 2: MSE vs Lambda for each individual fold")
+```
+
+For each lambda, we get $10$ different MSE due to the fact that we fit the model to 10 different training sets and validate with 10 different sets. So for a specific lambda the MSE varies quite a lot (in contrast to the mean), e.g. when using fold 4 we get the highest MSE being almost 5 times the mean of the MSE. It's also possible to see that if we only focus on the folds seperately, we would get different optimal lambdas. Since the choice of lambda differs between different folds clearly the choice of lambda is dependent on what folds we get when randomly dividing the data. One way to get more robust results is if we would have had more data. However, by trying different values of lambda between $1$ and $20$ it's possible to see that the MSE of the model only differs slightly, staying between $0.33 - 0.35$.
+
+***
+
+# Trees
+
+***
+
+**Task 3**
+
+In order to find a near optimal value of `cp` we begin by selecting a set of values which will be used in the cross-validation test.
+```{r}
+#Different values of cp for pruning (chosen by trial and error:
+#too big alphas resulted in just a stump of a tree)
+alpha_seq <- seq(0, 0.25, length.out = 10)
+```
+
+We then need to create a full tree using the training set for each of the 10 folds, i.e. 10 different full trees. We then prune the trees for each combination of `cp` value and fold using the function `prune` and use the validation set of the fold to predict the response using the pruned tree and calculate the MSE. Keep in mind that we are now using all of our predictors.
+```{r}
+#Choose lowest number of samples in a leaf
+minsplit2 <- 15
+#Formula for the model (lpsa as response, rest as predictors)
+formula2 <- lpsa~.
+
+#Function to model a decision tree (only to remove the rpart.control
+#to make it more compact and look better)
+tree_fit <- function(formula, data, minsplit){
+  rpart(formula, data, control = rpart.control(minsplit, cp = 0))
+}
+
+#Creates a dataframe including pruned trees, predicted values
+#and MSE for each fold and alpha combination
+pruned_df <- cv_prostate %>% 
+    # Fit a tree to each fold using training set
+    mutate(model_fit = map(train, ~tree_fit(formula2, .x, minsplit2))) %>% 
+    # One row for each combination of alpha and fold 
+    crossing(alpha = alpha_seq) %>%
+    # Prunes the trees for all fold/alpha combinations
+    mutate(pruned = map2(model_fit, alpha, ~prune(.x, cp = .y)),
+           #Predicts the response of the testset using their predictors on the pruned tree
+           #to respective fold/alpha combination
+           predicted = map2(pruned, test, ~predict(.x, newdata = .y)),
+           # Extract actual values from test data
+           actual = map(test, ~(model.frame(formula2, .x) %>% 
+                                    model.extract("response"))),
+           # Compute mse 
+           mse = map2_dbl(predicted, actual, ~mean((.x - .y)^2)))
+```
+
+We can also show the MSE as a function of the value of `cp` (once again error bars and one standard error rule should be used if possible)
+```{r}
+pruned_df %>% 
+  group_by(alpha) %>% 
+  summarise(mse = mean(mse)) %>% 
+  ggplot(aes(x = alpha, y = mse)) +
+  geom_point() +
+  geom_line() +
+  labs(title = "Figure 3: MSE as a function of alpha")
+```
+
+and find a near optimal value of `cp`.
+```{r}
+best_alpha <- pruned_df %>% 
+    group_by(alpha) %>% 
+    summarise(mse = mean(mse)) %>% 
+    top_n(1, -mse) %>% 
+    pull(alpha)
+best_alpha
+```
+
+We can now produce a full tree using all of our training data (no validation set and no folds) and use the near optimal `cp` to prune this tree.
+```{r}
+#Creates a full tree from entire training set
+test_tree <- tree_fit(formula2, prostate_prep_train, minsplit2)
+#Prunes the tree using the optimal cp value
+best_tree <- prune(test_tree, cp = best_alpha)
+
+rpart.plot(best_tree, roundint = FALSE)
+```
+
+Using the test set we can calculate the test mean squared error
+```{r}
+prostate_prep_test %>% 
+  mutate(predicted = predict(best_tree, .),
+                              actual = model.frame(formula2, .) %>% 
+                                  model.extract("response")) %>%
+    summarise(mse = mean((predicted - actual)^2))
+```
+
+which is really close but slightly larger than that of the ridge regression.
+
+***
+
+## Tree bias and variance
+
+```{r, echo = FALSE}
+# The function to estimate
+f <- function(x){
+    sin(x * 5)
+}
+
+# A function to simulate a sample of size n (uniform X)
+sim_data <- function(n = 100, f. = f, sd = 1/3){
+    data.frame(x = runif(n)) %>% 
+    mutate(y = f(x) + rnorm(n, sd = sd))
+}
+
+# Define a grid of points for which
+# performance shoudl be evaluated
+newdata <- data.frame(x = 0:50/50)
+
+# Number of Monte-Carlo samples
+N <- 100
+```
+
+***
+
+**Task 4**
+
+To begin with we simply make use of the code in the instructions, only changing some functions, distributions and also names for clarity.
+```{r}
+# The function to estimate
+g <- function(x){
+    3*x + 2
+}
+
+# A function to simulate a sample of size n (uniform X)
+sim_data <- function(n = 100, g. = g, sd = 1/4){
+    data.frame(x = runif(n)) %>% 
+    mutate(y = g(x) + rnorm(n, sd = sd))
+}
+
+# Number of Monte-Carlo samples
+N <- 100
+```
+
+We can now approximate the variance, squared bias and MSE of the unpruned decision tree trying to fit the function $g(x) = 3x+2$.
+```{r}
+#Minimum data in a leaf
+minsplit3 <- 15
+
+tibble(data = rerun(N, sim_data())) %>% # Draw N samples
+    # Fit an unpruned decision tree and calculate predictions
+    mutate(fit = map(data, ~tree_fit(formula = y~x, data = .x, minsplit3)),
+           predicted = map(fit, ~mutate(newdata, predicted = predict(.x, newdata = newdata))),
+           id = names(predicted)) %>% 
+    unnest(predicted) %>% 
+    group_by(x) %>%
+    #Calculate squared-bias, variance and MSE
+    summarise(bias2 = mean(g(x) - predicted)^2, 
+              variance = var(predicted), 
+              mse = bias2 + variance) %>% 
+    gather(key = "measure", value = "value", -x) %>% 
+    ggplot(aes(x = x, y = value, color = measure)) + 
+    geom_line() +
+    labs(title = "Figure 3: Bias/Variance balance for decision trees (minsplit = 15)")
+```
+
+Clearly this method does not balance bias and variance well. When using a minsplit value of 15, the method is close to unbiased but has large variance for reasonable values of `minsplit`. The bias increase at the borders of the range of $x$ while the reverse is true for the values closer to the center of the range. We can also see that in Figure 4, when allowing the minimum number of observations in a leaf (minsplit = 3), we start to overfit, capturing noise in the training set and thus have higher variance but less bias. We get rid of the increase in bias near the borders of the range of $x$, however, the MSE is still larger due to the fact that the variance increase. 
+
+
+```{r}
+minsplit4 <- 3
+
+tibble(data = rerun(N, sim_data())) %>% # Draw N samples
+    # Fit an unpruned decision tree and calculate predictions
+    mutate(fit = map(data, ~tree_fit(formula = y~x, data = .x, minsplit4)),
+           predicted = map(fit, ~mutate(newdata, predicted = predict(.x, newdata = newdata))),
+           id = names(predicted)) %>% 
+    unnest(predicted) %>% 
+    group_by(x) %>%
+    #Calculate squared-bias, variance and MSE
+    summarise(bias2 = mean(g(x) - predicted)^2, 
+              variance = var(predicted), 
+              mse = bias2 + variance) %>% 
+    gather(key = "measure", value = "value", -x) %>% 
+    ggplot(aes(x = x, y = value, color = measure)) + 
+    geom_line() +
+    labs(title = "Figure 4: Bias/Variance balance for decision trees (minsplit = 3)")
+```
+
+And in Figure 5 we can see that setting the minsplit value to a too large of a value, the problem of increase in bias at the border of the range of $x$ only increase. At the same time, so does the variance for all values of $x$. Therefor it is very important to decide on the correct number of observations we need in a node to attempt splitting it so that we do not under- or overfit our model.
+
+```{r}
+minsplit5 <- 35
+
+tibble(data = rerun(N, sim_data())) %>% # Draw N samples
+    # Fit an unpruned decision tree and calculate predictions
+    mutate(fit = map(data, ~tree_fit(formula = y~x, data = .x, minsplit5)),
+           predicted = map(fit, ~mutate(newdata, predicted = predict(.x, newdata = newdata))),
+           id = names(predicted)) %>% 
+    unnest(predicted) %>% 
+    group_by(x) %>%
+    #Calculate squared-bias, variance and MSE
+    summarise(bias2 = mean(g(x) - predicted)^2, 
+              variance = var(predicted), 
+              mse = bias2 + variance) %>% 
+    gather(key = "measure", value = "value", -x) %>% 
+    ggplot(aes(x = x, y = value, color = measure)) + 
+    geom_line() +
+    labs(title = "Figure 5: Bias/Variance balance for decision trees (minsplit = 35)")
+```
+
+For reasonable values of `minsplit` the following is true: A decision tree has large variance due to the fact that a change in one of the earlier splits impacts the splits below it (hierarchy structure). So if the data is changed slightly we could end up with a much different sequence of splits. The low bias comes from the fact that we impose very little, if any, assumptions on the model. One way to reduce the variance is bagging as we will see in the next task.
+
+***
+
+**Task 5**
+
+We begin by creating a function that draws bootstrap samples and calculate the average predicted value at each value $x$ where the average is taken over the bootstrap samples.
+```{r}
+#Function to create a dataframe with columns x and predicted where
+#predicted is the mean of the resampling predictions
+bag_tree <- function(data, newdata = data.frame(x = 0:50/50), B = 10){
+    #creates an empty dataframe
+    predicted <- as.data.frame(matrix(ncol = B, nrow = nrow(newdata)))
+    #Each loop resample the data, fit an unpruned tree and put prediction on new data in a dataframe
+    for(i in 1:B){
+        boot <- sample_n(data, nrow(data), replace = TRUE)
+        fit <- tree_fit(y~x, boot, minsplit = minsplit3)
+        predicted[,i] <- predict(fit, newdata = newdata)
+        }
+    #Dataframe with mean predictions and x values from newdata
+    return(tibble(predicted = rowMeans(predicted)) %>% 
+      cbind(newdata) %>%
+      select(x, predicted))
+}
+```
+
+and we can once again plot the MSE, bias and variance as a function of $x$, this time with bagging, to illustrate the reduction in variance.
+```{r}
+tibble(data = rerun(N, sim_data())) %>% 
+    mutate(predicted = map(data, ~bag_tree(.x)),
+           id = names(predicted)) %>% 
+    unnest(predicted) %>% 
+    group_by(x) %>% 
+    summarise(bias2 = mean(g(x) - predicted)^2, 
+              variance = var(predicted), 
+              mse = bias2 + variance) %>% 
+    gather(key = "measure", value = "value", -x) %>% 
+    ggplot(aes(x = x, y = value, color = measure)) + 
+    geom_line() +
+    labs(title = "Figure 4: Bias and variance after Bagging")
+```
+
+***

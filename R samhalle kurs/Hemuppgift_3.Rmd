@@ -1,0 +1,70 @@
+---
+title: "Hemuppgift 3"
+author: "Anton Holm"
+date: '2020-07-05'
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+
+suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(tidytext))
+suppressPackageStartupMessages(library(gutenbergr))
+suppressPackageStartupMessages(library(ggwordcloud))
+```
+
+
+```{r, warning = FALSE}
+#Laddar hem texterna
+texter <-gutenberg_download(c(3300, 46423, 33310, 4239), meta_field = 'title')
+
+#Tokaniserar texterna
+texter_tok <- texter %>% 
+  unnest_tokens(word, text)
+
+#Laddar hem stoppord
+stopwords <- tidytext::stop_words %>% 
+  select(word)
+
+#Tar bort stoppord ur tidigare nedladdade texterna
+texter_no_stop <- anti_join(texter_tok, stopwords, by = "word")
+
+#Tar fram de 20 vanligaste orden för varje bok
+common_words <- texter_no_stop %>% 
+  group_by(title) %>% 
+  count(word) %>% 
+  arrange(desc(n)) %>% 
+  top_n(n=20)
+
+```
+
+In figur 1 nedan ser vi ett ordmoln som visar de 20 vanligaste orden i de fyra böckerna där boktitlarna är ordnade efter färger. Ju större orden är desto mer frekvent kommer ordet i boken. I en av böckerna finns 21 ord med då två ord delade 20de plats.
+
+```{r, warning = FALSE}
+#Plottar ett ordmoln över de vanligaste orden för varje bok
+ggplot(common_words, aes(label = word, col = title, size = n)) +
+  geom_text_wordcloud(show.legend = TRUE) +
+    theme_minimal() + 
+  scale_size_area(max_size = 9) +
+  theme(legend.position = "bottom") + 
+  guides(size = FALSE, colour = guide_legend(nrow = 4, title = "Book Title")) +
+  labs(title = "Figure 1: Wordcloud over most commonly used words")
+```
+
+Nedan ser vi Figur 2 som är till för att illustrera mer detaljerat i hur många gånger de vanligaste orden förekommer.
+```{r}
+#Plottar en barplott för att visa hur många gånger de vanligaste orden förekommer
+ggplot(common_words, aes(x = word, y = n, fill = title)) + 
+  geom_col() +
+  coord_flip() +
+  theme_minimal() +
+  theme(text = element_text(size=8)) +
+  guides(fill = guide_legend(title = "Book Title")) +
+  labs(title = "Figure 2: Barblot showing word frequency", x = "Word", y = "Frequency")
+```

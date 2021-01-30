@@ -1,0 +1,39 @@
+---
+title: "Projektet Main Code"
+author: "Anton Holm"
+date: "20 september 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+data <- read.table("charter-win.dat", header = F)
+```
+
+
+
+```{r}
+summary(data)
+data
+
+```
+
+```{r}
+Grund.M <-lm(data = data, V1 ~ V2 + V3 + V4 + V5 + V6 + V7 + V8 + V9 + V10 + V11 + V12 + V13 + V14 + V15 + V16 + V17 + V18 + V19 + V20)
+
+
+Hyp.M <-lm(data = data, V1 ~   V3 + V4 + V5 + V6 + V7 + V8 + V9 + V10 + V11 + V12 + V13 + V14 + V15 + V16 + V17 + V18 + V19 + V20)
+
+
+Sum.Grund <-summary(Grund.M)
+Sum.Grund
+
+
+```
+
+```{r}
+
+```

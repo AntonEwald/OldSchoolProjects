@@ -1,0 +1,450 @@
+---
+title: "Variansanalys av banandoft i äpplen Jonagold"
+author: "Laimei Yip Lundström, Pär Villner, Anton Holm Klang, Alice Pipping"
+date: "15/10/2019"
+output:
+  word_document: default
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+
+### Sammanfattning
+
+En frukts doft påverkas av hur den förvaras. Denna rapport undersöker därför hur vissa förvaringstillstånd påverkar ett äpples lukt av banan. De faktorer som undersöks är syresättning, mognadstid och lagringstid samt assessorer som betygsatt äpplena. Syftet är att avgöra  vilka förvaringssätt som påverkar äpplets doft av banan och hur de olika nivåerna i de signifikanta förvaringssätten påverkar äpplets doft. Rapportens slutsats är att syresättning och mogningstid är de signifikanta faktorerna.
+
+###Inledning och frågeställning
+Syftet med detta arbete är att avgöra hur förvaringssätt av äpplen påverkar om äpplena doftar banan. I ett experiment som utfördes 1987 lät man Jonagold-äpplen förvaras på olika sätt, innan en panel fick avgöra hur stark doft av banan som de olika äpplena hade. Genom att analysera data från experimentet ska vi:
+
+      1. Avgöra vilka förvaringssätt som påverkade äpplenas doft av banan;
+      2. Vilken nivå i de signifikanta förvaringssätten som har störst positiv påverkan.
+     
+Då det är kategoriska faktorer kommer frågorna besvaras genom variansanalys. Denna metod väljs då vi med vår kunskap vet att det är en metod som fungerar. Vi noterar dock att det kan finnas bättre metoder som ligger utanför vår kunskapsnivå.
+
+###Beskrivning av data
+Experimentet som ligger till grund för data gick till på följande sätt: efter skörd placerades äpplen slumpvis i fyra olika containrar, där det rådde olika nivåer av syre. Efter 109 dagar tog man slumpmässigt ut en grupp äpplen ur alla fyra containrar; övriga äpplen fick ligga kvar i ytterligare 81 dagar. När äpplen tagits ur sin container, utvärderades deras doft vid sex olika tillfällen, av en panel där varje assessor satte ett individuellt betyg. På det sättet betygsattes alla möjliga kombinationer av äppelförvaringar.
+
+Data består av 432 observationer, med värden i följande fem variabler:
+
+1. Oxygen rate: Andelen syre/kväve i containern; har fyra värden: 1/99, 2/98, 4/96 och 21/79 där den sista är den vanliga syre/kväve andelen i luften;
+
+2. Storage time: Antal dagar äpplen förvarades i containern; har två värden: 109 och 190;
+
+3. Ripening time: Antal dagar utanför containern innan doften testas; har sex värden: 2, 5, 9, 12, 19 och 26;
+
+4. Assessor: 2 grupper av assessor testade äpplena. Det var 8 personer som testade äpplena som förvarades i 109 dagar, och 10 som testade äpplena som förvarades i 190 dagar. Enligt instruktionerna är det inte klarlagt om det var disjunkta grupper av assessorer vid 109 dagar och 190 dagar eller om det fanns assessorer som var med i båda grupperna. Vi utgick ifrån att grupperna var disjunkta. 
+
+5. Score: Intensitet av banandoft i äpplen, betygsatt från 0 till 5, med 0.5-intervall. Möjliga betyg är alltså 0; 0.5; 1; 1.5; ...; 5.
+
+Score är responsvariablen. Oxygen rate, Storage time, Ripening time  och  Assessor är de kategoriska faktorerna. Vår data är inte balanserad, eftersom att olika antal assessorer deltog vid 109 och 190 dagar. Vi löste problemet genom att ta bort de två assessorer från 190 dagar som saknade flest värden. Det var assessor nummer 6 och 10, som båda saknade 12 av 24 score-värden vid tidpunkten 190 dagar.
+
+Ett antal score-värden från kvarvarande assessorer saknades, gissningsvis för att vissa assessorer inte varit på plats vissa dagar. Dessa saknde värden ersatte vi med genomsnittet för den lagringskombinationen i fråga, beräknat på de assessorer som hade satt betyg - om det saknade värdet skulle ha varit lagringskombination med storage time 109, ripening time 2 och oxygen rate 1, satte vi in medelvärdet av score-värdena för denna kombination. På så sätt fick vi 24 värden per assessor och 8 assessorer per storage time. Vi valde att ta medelvärde för en viss lagringskombination snarare än för en viss person för att minska risken att påverkas av en viss assessors egna åsikter.
+
+Slutliga data blir då balanserad bestående utav 384 observationer.
+
+### Statistisk modellering och analys av data
+
+#### Slumpmässiga eller systematiska faktorer
+För variansanalys är det centralt att bestämma om faktorerna i analysen är slumpmässigt eller systematiskt valda, eftersom det påverkar modellval och beräkning av varianserna som skall jämföras. Vi har valt att anta perspektivet av en äppelproducent.  Vi har antagit att äppelproducenter är intresserade av effekten av specifika nivåer på syresättning, mognad tid och lagringstid på banandoft i äpplen. Därmed blir dessa faktorer systematiska. Faktorn assessor kommer vi titta närmare på i modellanalysen nedan.
+
+#### Statistisk modellering och analys av data
+Det vi ska ta reda på är om lagringsmetod påverkar hur mycket ett äpple doftar banan. Vi ska göra detta med två olika modeller: en där vi tar medelvärdet av score, beräknat över assessor (vi kommer alltså inte ta hänsyn till variabeln assessor), och en där vi tar hänsyn till variabeln assessor.
+
+Enligt kurslitteratur har variansanalysmodeller följande förutsättningar:
+
+    1. Additiva effekter av faktorerna;
+    2. Varianshomogenitet;
+    3. Normalfördelning,
+   
+där punkt 2 och 3 gäller feltermerna och eventuella slumpmässiga faktorer.
+
+Vi antar att den första förutsättningen om additivitet är approximativt uppfylld och kontrollerar de andra på sedvanligt sätt med residualplottar och QQ-plottar.
+
+Utifrån motivering av faktorernas karaktär ovan tar vi fram två modeller:
+
+##### Modell I: Medelvärde av betyg, beräknat över assessorer
+
+I första fallet tar vi som Score medelvärdet över alla assessorer för varje lagringskombination, så att vi bara får ett score-värde per lagringskombination, dvs vi ignorerar eventuell varians och att olika assessorer ger betyg vid olika dagar. Då är assessor alltså inte en faktor i variansanalysens bemärkelse. Därmed så finns det inte några replikat och vi kommer inte kunna skatta samspelet mellan övriga faktorer.  Eftersom vi har antagit att alla faktorer är systematiska, blir modellen av typ I. Det leder till följande modell:
+
+$$Y_{i,j,k} = \mu + \alpha_i + \beta_j + \gamma_k + \epsilon_{i,j,k},$$ där $i=1,...,4$ (oxygen rate), $j=1,...,6$ (ripening time), $k=1,2$ (storage time), med restriktionen
+
+$\sum\limits_{i}\alpha_i = \sum\limits_{j}\beta_j = \sum\limits_{k}\gamma_k=0$ och feltermerna $\epsilon_{i,j,k,}\sim N(0, \sigma_{\epsilon}^2)$, som är sinsemellan oberoende. Vi behöver ansätta dessa restriktioner för att undivka potentiell överparametrisering.
+
+Vi kontrollerade att residualerna var normalfördelade och hade konstant varians med en QQ-plot respektive residualplot (se Appendix, Figur 1 och 2), vilket innebär att vi kan använda oss av p-värdena i variansanalystabellen.
+
+För att svara på frågeställning om dessa faktorers påverkan på äpplens banandoft tittade vi på variansanalystabellen (se Appendix, Tabell 1). Vi observerade att den enda faktorn med ett p-värde lägre än 0.05 är Oxygen Rate. Detta betyder alltså att bland noll-hypoteserna:
+$$ H_0: \alpha_1=...=\alpha_4=0 $$
+$$ H_0': \beta_1=...=\beta_6=0$$
+$$\tilde{H}_0:\gamma_1=\gamma_2=0$$
+kan vi endast förkasta $H_0$ till förmån för den alternativa hypotesen $H_1:\alpha_i\neq0~~~~~~för~minst~ett~i$på signifikans nivån $5\%$. 
+Detta antyder att det endast är syresättning som har en signifikant påverkan på äpplens banandoft.
+
+##### Modell II: assessorer indelade i 2 block
+
+I den andra modellen introducerar vi två block av assessorer, ett för varje lagringstid (109 och 190 dagar). Vi gör antagandet att dessa två block är disjunkta, dvs en värderingsperson som jobbade i blocket 109 dagar jobbade inte i blocket 190 dagar. Vi antar att äppelproducenten inte är intresserade av själva assessorerna, så därför blir de en slumpmässig faktor. Dessutom sammanfaller assessorgrupper med Storage Time, vilket gör att assessorer då är underordnade Storage Time. Vi får en fyrsidig blandad modell med en observation per cell och Assessor är underordnad Storage Time:
+
+$$Y_{i,j,k,l} = \mu + \alpha_i + \beta_j + \gamma_k + \eta_{kl} +\epsilon_{i,j,k,l},$$ där $i=1,...,4$ (oxygen rate),  $j=1,...6$ (ripening time), $k=1,2$ (storage time), $l=1,...,16$ (assessors) med restriktionen
+
+$\sum\limits_{i}\alpha_i = \sum\limits_{j}\beta_j = \sum\limits_{k}\gamma_k=0$ och feltermerna $\epsilon_{i,j,k,l}\sim N(0, \sigma_{\epsilon}^2)$ och underfaktorn $\eta_{kl}\ \sim\ N(0, \sigma_{\eta}^2)$ som sinsemellan är oberoende.
+
+Först kontrollerades residualplottar och QQ-plottar (se Appendix, Figur 3 till 6) för att säkerställa att residualerna såg normalfördelade ut och varianshomogenitet är uppfyllda för både $\epsilon_{i,j,k,l}$ och $\eta_{kl}$. Allt ser bra ut förutom residualplotten för $\eta_{kl}$ där det inte är helt tydligt om variansen är konstant. Då vi inte har kunskaper kring hur man kan hantera detta fortsätter vi analysen som om variansen hade varit konstant.
+
+Vi kan se från modellens variansanalystabell (se Appendix, Tabell 2) att både syresättning och mognadstid har p-värden under 0.05. Vi kan alltså på signifikansnivå $5\%$ förkasta noll-hypoteserna 
+$$H_0'':\alpha_1=...=\alpha_4 =0 $$
+$$\tilde{H}_0'':\beta_1=...=\beta_6=0$$
+till förmån för alternativ hypoteserna:
+$$H_1'':\alpha_i\neq 0 ~~~~~~~~~~för~minst~ett~i$$
+$$\tilde{H_1}'':\beta_j\neq 0~~~~~~~~ för~minst~ett~j$$
+Men vi kan inte förkasta noll-hypotesen $\bar{H}_0'':\gamma_1=\gamma_2=0$ på signifikansnivån $5\%$.
+Vi anser det relevant att utreda om variation i betygsättning mellan olika assessorers påverkade vårt resultat, eller om vi ska se olika assessorers betyg av samma lagringskombination som replikat. För att avgöra detta bildar vi kvoten $$\sigma_{\eta}^2 / \sigma_{\epsilon}^2.$$ Om kvoten är 1 (eller större), betyder det att variation mellan assessorer bidrar till den totala variationen lika mycket (eller mer) som feltermerna. Då kan vi inte ta bort assessorer från modellen. Om kvoten är liten kan man fundera på att slå samman assessor-kvadratsumman med kvadratsumman för residualer, dvs betrakta  variationen inom assessorer som en del av normalfördelat brus i feltermerna. Beräkningen av kvoten kunde vi göra genom att plocka ut värdena från variansanalystabellen som ges av $$(1.492-0.86)/0.86 \approx 0.73.$$. Eftersom den observerade kvoten ligger relativt nära 1, anser vi det oklokt att bortse assessorers inverkan på responsvariabeln i denna modell. Alltså behåller vi assessor som faktor. Därmed kan vi inte heller här skatta samspelen då vi inte har några replikat.
+
+####Vilka nivåer i de signifikanta förvaringssätten som har störst positiv påverkan?
+För att besvara den andra frågan i vår frågeställning studerar vi vilken nivå för varje signifikant faktor som har störst positiv effekt på bananlukten hos ett äpple. För Model 1 är det endast syrenivå som har signifikant påverkan på bananlukten. Därför har vi tagit fram skattningarna för effekten hos varje nivå. I Tabell 3 går det att avläsa att syrenivån 21/79 har störst positiv effekt medan syrenivån 1/99 har störst negativ effekt. 
+
+För Modell 2 har vi två faktorer att undersöka, syrenivå samt mognadstid. Syrenivåerna är desamma här som i Modell 1.
+Gällande mognadstid går det att se i Tabell 4 att 9 dagar har störst positiv effekt på bananlukten hos ett äpple medan 2 och 26 dagar har störst, och nästan densamma, negativ effekt på bananlukten.
+
+###Slutsats
+
+Vi har kommit fram till att i modell 1 är det endast syrehalten som har en signifikant påverkan på äpplets bananlukt. I modell 2 är det både syrehalten samt mognadstiden som är signifikanta där syrehalten har ett betydligt lägre p-värde än mognadstid.
+
+Enligt båda modellerna gäller att syrekoncentrationen 21/79 har störst positiv påverkan och enligt modell 2 ger faktorn mognadstid störst positiv påverkan vid 9 dagar.
+
+###Diskussion
+
+Följande är saker som påverkade vår analys och som kunde ha gjorts annorlunda.
+
+1. Saknade mätvärden:
+Det är möjligt att vi hade fått ett helt annat resultat om det inte hade saknats mätvärden. Förslagsvis bör man vid ett liknande test vara hårdare vid val av assessorer för att se till så att personer som blir valda faktiskt kan vara med de dagar som testet ska utföras på. Alternativt kan man istället för att ha en specifik dag för testning av äpplen låta äpplen testas under ett intervall på några dagar om det inte är viktigt att testa efter ett specifikt antal dagar. Detta skulle öka chanserna för att fler assessorer kan dyka upp för testning av äpplen. 
+
+2. Hur vi bestämde faktorers karaktär:
+Vi gjorde antagandet att de olika variationerna av syresättning, lagringstid och mognadstid var systematiska. Det är dock lika rimligt att anta att t.ex. tiderna 109 och 190 dagar valdes endast för att någon kunde vara på plats och plocka ut äpplena ur storage dessa dagar, och analogt för övriga faktorer.  Vi hade dock ingen information om detta, utan tvingades göra ett antagande.
+
+3. Rensning av data:
+Vi var tvungna att ta bort en del data, vilket gjorde att vi inte kunde utnyttja all information som insamlades. Vi var också begränsade av vår kunskap att göra en variansanalys från ett obalanserat dataset.
+
+4. Antagande om faktorn Assessor:
+I analysen har vi antagit att grupperna assessorer är disjunkta, och att alla assessorer gör sina bedömningar på samma sätt, och att deras preferenser varit konstanta. Dessa antaganden är kanske inte realistiska, men var en rimlig förenkling för våra syften.
+
+5. Undersök vidare faktorn syresättning: Då det i detta fall har tagits fram att syrenivåerna är mest signifikant blir en rekomendation till äppelproducenten att, om ett liknande test ska utföras igen, lägga större fokus på just syrenivåerna. Dvs, äppelproducenten bör testa flera variationer på syrenivåer för att ta fram den andel syre som ger det bästa äpplet. Speciellt hade av intresse varit att se hur bananlukten hade påverkats av en syrenivå högre än den som finns naturligt i atmosfären.
+
+### Uppdelning av arbete
+
+Alla har bidragit till projektet lika mycket.
+
+```{r}
+frukt <- read.table("b18.dat", na.strings = ".")
+colnames(frukt) <- c("storage.time", "assessor", "ripening.time", "oxygen.rate", "score")
+frukt.no.NA <- subset(frukt, frukt$score != "NA")
+fruktorder <- frukt.no.NA[order(frukt.no.NA[,1], frukt.no.NA[,3], frukt.no.NA[,4]), ]
+```
+
+```{r include=FALSE}
+# function that computes mean scores from data frame. Returns data frame.
+compute.mean.score <- function(data){
+  df <- matrix(ncol = 4)
+  colnames(df) <- c("storage.time", "ripening.time", "oxygen.rate", "score")
+  storageTime <- list(109, 190)
+  ripeningTime <- list(2, 5, 9, 12, 19, 26)
+  oxygenRate <- list(1, 2, 4, 21)
+
+  for (l in storageTime) {
+    for(k in ripeningTime){
+      for(j in oxygenRate){
+        count <- 0
+        sum <- 0
+        for(i in 1:length(data$score)){
+          if (data$storage.time[i] == l & data$ripening.time[i] == k & data$oxygen.rate[i] == j) {
+            count = count + 1
+            sum = sum + data$score[i]
+          }
+        }
+        if (count != 0) {
+          df <- rbind(df, c(l, k, j, sum/count))
+        }
+      }
+    }
+  }
+  return (as.data.frame(df[-1,]))
+}
+```
+
+```{r include=FALSE}
+# to remove assessor 6 and 10 from 190 days, using original data that CONTAINS NA values
+remove.6n10 <- frukt[!(frukt$storage.time==190 & frukt$assessor==6),]
+data.wo.6n10 <- remove.6n10[!(remove.6n10$storage.time==190 & remove.6n10$assessor==10),]
+```
+
+```{r include=FALSE}
+# to remove assessor 6 and 10 from 190 days, using data WITHOUT NA values
+remove.6n10nNA <- fruktorder[!(fruktorder$storage.time==190 & fruktorder$assessor==6),]
+data.wo.6n10nNA <- remove.6n10nNA[!(remove.6n10nNA$storage.time==190 & remove.6n10nNA$assessor==10),]
+
+ # get mean scores of assessors' scores
+mean.scores <- compute.mean.score(data.wo.6n10nNA)
+```
+
+```{r eval=FALSE, include=FALSE}
+# Måns kod. For reference only.
+c <- tapply(X = frukt$score, INDEX = list(frukt$storage.time, frukt$ripening.time, frukt$oxygen.rate), mean, na.rm=TRUE)
+```
+
+```{r include=FALSE}
+# function that insert mean scores into data frame. Returns data frame.
+insert.mean.score <- function(frukt, mean.score){
+  storageTime <- list(109, 190)
+  ripeningTime <- list(2, 5, 9, 12, 19, 26)
+  oxygenRate <- list(1, 2, 4, 21)
+
+  for (l in storageTime) {
+    for(k in ripeningTime){
+      for(j in oxygenRate){
+        for(i in 1:length(frukt$score)){
+          if (frukt$storage.time[i] == l & frukt$ripening.time[i] == k & frukt$oxygen.rate[i] == j & is.na(frukt$score[i])){
+            for (r in 1:length(mean.score$score)){
+                if(mean.score$storage.time[r] == l & mean.score$ripening.time[r]==k & mean.score$oxygen.rate[r]==j) {
+                 
+                  frukt$score[i] <- mean.score$score[r]
+                }
+          }
+        }
+      }
+    }
+    }
+  }
+  return (frukt)
+}
+```
+
+```{r include=FALSE}
+# data without assessors 6 and 10 from 190 days, and NA values are filled in
+final.data <- insert.mean.score(data.wo.6n10, mean.scores)
+```
+
+```{r include=FALSE}
+# data for us in Model 1
+data.model1 <- compute.mean.score(final.data)
+```
+
+```{r echo=FALSE}
+# Model 1. 3 factors, additive.
+banana.model1 <- aov(score ~ as.factor(storage.time) + as.factor(ripening.time) + as.factor(oxygen.rate), data = data.model1)
+#summary(banana.model1)
+```
+
+
+```{r include=FALSE}
+#function to change assessors' number tag. Returns data frame.
+change.assessor.no <- function(data){
+  for (i in 1:nrow(data)){
+    if (data$storage.time[i]==190 & data$assessor[i]==9){
+      data$assessor[i] <- 16
+    }
+    if (data$storage.time[i]==190 & data$assessor[i]==8){
+      data$assessor[i] <- 15
+    }
+    if (data$storage.time[i]==190 & data$assessor[i]==7){
+      data$assessor[i] <- 14
+    }
+    if (data$storage.time[i]==190 & data$assessor[i]==5){
+      data$assessor[i] <- 13
+    }
+    if (data$storage.time[i]==190 & data$assessor[i]==4){
+      data$assessor[i] <- 12
+    }
+   if (data$storage.time[i]==190 & data$assessor[i]==3){
+      data$assessor[i] <- 11
+    }
+  if (data$storage.time[i]==190 & data$assessor[i]==2){
+      data$assessor[i] <- 10
+    }
+   if (data$storage.time[i]==190 & data$assessor[i]==1){
+      data$assessor[i] <- 9
+    }
+  }
+return(as.data.frame(data))
+  }
+```
+
+
+```{r eval=FALSE, include=FALSE}
+# function to construct two assessor panels. Not necessary anymore.
+data.block.panel <- function(data){
+    for (i in 1:nrow(data)){
+     
+      if (data$storage.time[i] == 109){
+        data$assessor[i] <- 1
+   
+      }
+      if (data$storage.time[i] == 190){
+        data$assessor[i] <- 2
+    }
+    }
+  return (data)
+}
+data.block.assessor <- data.block.panel(final.data) # data that containts 2 assessor blocks
+data.block.assessor$assessor <- sapply(data.block.assessor$assessor, as.factor) # convert assessors back to factors
+```
+
+```{r include=FALSE}
+# data for use in Model 2
+finally <- change.assessor.no(final.data)
+```
+
+```{r echo=FALSE}
+# Model 2. 3 main factors; storage.time is a hierachical factor with assessors under it. Additive.
+banana.model2 <- aov(score ~ as.factor(storage.time) + as.factor(ripening.time) + as.factor(oxygen.rate) + Error(as.factor(assessor)),  data = finally)
+#summary(banana.model2)
+```
+
+```{r}
+# compute effect estimates
+
+effect.est <- function(data, factor.levels, f){
+  mean.effect <- sum(data$score) / nrow(data)
+  est.vector <- c()
+  for (l in factor.levels){
+    sum <- 0
+    count <- 0
+    for (i in 1:nrow(data)){
+      if (f[i] == l) {
+        sum <- sum + data$score[i]
+        count <- count + 1
+      }
+    }
+    est.vector <- c(est.vector, sum/count - mean.effect)
+   
+  }
+  return (est.vector)
+}
+```
+
+```{r}
+model1effects <- effect.est(data.model1, c(1,2,4,21), data.model1$oxygen.rate)
+```
+
+```{r}
+modell2effects_oxy <- effect.est(finally, c(1,2,4,21), finally$oxygen.rate)
+modell2effects_ripe <- effect.est(finally, c(2,5,9,12,19,26), finally$ripening.time)
+```
+
+## Appendix
+
+### Figur 1 och 2: QQ-plot och Residualplot för Modell 1
+
+```{r echo=FALSE}
+# qq plots of Model 1
+par(mfrow=c(1,2))
+qqnorm(banana.model1$residuals)
+qqline(banana.model1$residuals)
+plot(banana.model1, c(1))
+```
+
+
+### Figur 3 och 4: QQ-plottar för Modell 2
+
+```{r}
+par(mfcol = c(1,2))
+# qq plots of Model 2. Residuals(Inom cell)
+qqnorm(banana.model2$Within$residuals, main = "Q-Q Plot: Inom cell")
+qqline(banana.model2$Within$residuals)
+# qq plots of Model 2. Residuals(Inom underindelning)
+qqnorm(banana.model2$`as.factor(assessor)`$residuals, main = "Q-Q Plot: Inom underindelning")
+qqline(banana.model2$`as.factor(assessor)`$residuals)
+```
+
+### Figur 5 och 6: Residualplottar för Modell 2
+
+
+```{r}
+par(mfcol = c(1,2))
+plot(banana.model2$Within$fitted.values, banana.model2$Within$residuals,
+     main = "Residual plot: Inom celler",
+     xlab = "Fitted values",
+     ylab = "Residuals")
+abline(h = 0, lty = 2)
+plot(banana.model2$`as.factor(assessor)`$fitted.values, banana.model2$`as.factor(assessor)`$residuals,
+     main = "Residual plot: Underindelning",
+     xlab = "Fitted Values",
+     ylab = "Residuals")
+abline(h = 0, lty = 2)
+```
+
+### Tabell 1: Variansanalystabell för Modell 1
+
+```{r echo=FALSE}
+# Model 1. 3 factors, additive.
+banana.model1 <- aov(score ~ as.factor(storage.time) + as.factor(ripening.time) + as.factor(oxygen.rate), data = data.model1)
+summary(banana.model1)
+```
+
+### Tabell 2: Variansanalystabell för Modell 2
+
+```{r echo=FALSE}
+# Model 2. 3 main factors; storage.time is a hierachical factor with assessors under it. Additive.
+banana.model2 <- aov(score ~ as.factor(storage.time) + as.factor(ripening.time) + as.factor(oxygen.rate) + Error(as.factor(assessor)),  data = finally)
+summary(banana.model2)
+```
+
+```{r eval=FALSE, include=FALSE}
+# preparation for interaction plots. Not necessary anymore
+ripening <- factor(final.data$ripening.time,levels=c(2,5,9,12,19,26))
+storage <- factor(final.data$storage.time,levels=c(109,190))
+oxygen <- factor(final.data$oxygen.rate,levels=c(1,2,4,21))
+assessor <- factor(final.data$assessor, levels = c(1,2))
+```
+
+```{r eval=FALSE, include=FALSE}
+# interaction plot between storage and ripening
+interaction.plot(storage, ripening, final.data$score, col = c("blue","red","purple","orange","yellow","green"),lty=1)
+```
+
+```{r eval=FALSE, include=FALSE}
+#interaction plot between storage and oxygen
+interaction.plot(storage, oxygen, final.data$score, col = c("blue","red", "purple", "orange"),lty=1)
+```
+
+#### Tabell 3: Effekt av syrenivåer i modell 1 och modell 2.
+```{r}
+ mod1oxy <- matrix(model1effects, nrow=1)
+ colnames(mod1oxy) <- c('1/99', '2/98', '4/96','21/79')
+ rownames(mod1oxy) <- c('Effekt')
+mod1oxy.table <- as.table(mod1oxy)
+mod1oxy.table
+```
+
+#### Tabell4: Effekt av mognadsdagar i modell 2
+```{r}
+ mod2ripe <- matrix(modell2effects_ripe, nrow=1)
+ colnames(mod2ripe) <- c('2', '5', '9','12', '19','26')
+ rownames(mod2ripe) <- c('Effekt')
+mod2ripe.table <- as.table(mod2ripe)
+mod2ripe.table
+```
+
+```{r eval=FALSE, include=FALSE}
+# interaction plot between ripening and oxygen
+interaction.plot(ripening, oxygen, final.data$score, col = c("blue","red", "purple", "orange"),lty=1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# interaction between storage and assessor
+interaction.plot(storage, assessor, final.data$score, col = c("blue","red", "purple", "orange"),lty=1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# interaction between ripening and assessor
+interaction.plot(ripening, assessor, final.data$score, col = c("blue","red", "purple", "orange"),lty=1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# interaction plot between assessor and oxygen.
+interaction.plot(assessor, oxygen, final.data$score, col = c("blue","red", "purple", "orange"),lty=1)
+```
+
+
+

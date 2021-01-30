@@ -1,0 +1,73 @@
+---
+title: "Inlämning 1"
+author: "Anton Holm"
+date: '2020-06-16'
+output:
+  pdf_document: default
+  html_document: default
+editor_options:
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(kableExtra)
+load("hu1_lifeexp.RData")
+load("hu1_continents.RData")
+
+#Tar fram medellivslängden
+mean_lifeexp <- hu1_lifeexp %>% 
+  summarise(mean(life_expectancy))
+
+#Median
+median_lifeexp <- hu1_lifeexp %>% 
+  summarise(median(life_expectancy))
+
+#Topp 5 högst livslängd
+top_5 <- hu1_lifeexp %>% 
+  arrange(desc(life_expectancy)) %>%
+  slice(1:5)
+
+#5 lägsta livslängd
+bot_5 <- hu1_lifeexp %>% 
+  arrange(life_expectancy) %>% 
+  slice(1:5)
+
+#Stapeldiagram för 5 länder med bäst och sämst livslängd
+fig_1 <- full_join(bot_5, top_5) %>%
+  ggplot(aes(x = country, y=life_expectancy)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Figur 1: Stapeldiagram över de 5 länder med högst respektive lägst medellivslängd", y = "Medellivslängd", x = "Land")
+
+
+life_cont <- inner_join(hu1_lifeexp, hu1_continets, by = c("country" = "land"))
+
+avg_cont <- life_cont %>% 
+  group_by(continent) %>% 
+  summarise(`Medellivslängd` = mean(life_expectancy))
+
+tab_1 <- avg_cont %>% 
+  knitr::kable(escape = FALSE, format = "latex", booktabs = T, align = "l", caption = "Medellivslängd för kontinenter") %>%
+column_spec(1, bold=T)
+
+
+fig_2 <- avg_cont %>% 
+  ggplot(aes(x=continent, y = Medellivslängd, fill = continent)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Figur 2: Stapeldiagram över medellivslängden för kontinenter", x = "Land")
+```
+
+Medellivslängden för samlingen av alla länder är `r round(mean_lifeexp[1], digits = 2)` och medianlivslängden är `r round(median_lifeexp[1], digits = 2)`.
+De tre länder med längst livslängd var Japan, Island och Schweiz med livslängd på 83.33, 83.11 och 82.75 år respektive.
+I Figur 1 kan man se medellivslängden för de 5 länder med högst respektive lägst medellivslängd.
+Skillnaden i medellivslängd mellan kontinenterna visas i Table 1 och går även att se mer illustrerat i Figur 2. 
+
+```{r}
+fig_1
+tab_1
+fig_2
+```

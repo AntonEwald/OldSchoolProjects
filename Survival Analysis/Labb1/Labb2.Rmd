@@ -1,0 +1,122 @@
+---
+title: "Labb2"
+author: "Anton Holm"
+date: '2020-10-05'
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(tidyverse); theme_set(theme_minimal())
+library(survival)
+library(coin)
+library(survminer)
+set.seed(931031)
+```
+In Figure 1-2 we have independent censoring while in Figure 3-4 we have group dependant censoring with group 2 having a lower chance of getting a censored event. However, this does not seem to impact the analysis in any major way.
+
+To begin with, we know from how the data is simulated that the covariates stays constant over time. In other words, $x(t) = x$ for all $t$ and thus the proportional hazard assumption is fullfilled. Another way to see this is by looking at Figure 1 and 3 regarding the Kaplan-Meier estimates for the survival function. We can see that the survival function for the two groups are parallel in both cases which in turn mean that the ratio of the hazard stays the same over time for any two individuals, i.e. it's constant over time. This indicates that the proportional hazard assumption is fullfilled. As a side note, in the second part of this project, we can say that given a person having a large survival time, it is slightly more likely that he or she belongs to group 2 due to the fact that the distribution of the censoring time for group 2 results in slightly larger censoring times on avarage. However, that is not what the proportional hazard assumption is about. In our case, when a person is given a group, he or she stays in this group until the end and thus the assumption holds.
+In both cases, the logrank test results in a p-value far below any reasonable threshold (for example 0.05 and 0.01) and thus we can with statistical certainty reject the null-hypothesis which stated that the two intensity function were the same in favor of the alternative hypothesis, i.e. the two datasets have different intensity functions. 
+The estimation of the regression coefficient in the cox-regression model when both groups have the same censoring distribution comes out at around $-1.08$ i.e. the exponential of the coefficient is at $0.34$. So in our case, having group 1 as $x=0$ and group 2 as $x=1$, we can say that the risk is lower for the second group than it is for group 1. Taking the quota between the two models results in the base hazard ratio dissapearing and leaves us with $r(\beta, x = 1) / r(\beta, x=0) = e^\beta$ and thus, since $\hat{\beta} = -1.08$ we can say that you are $1/0.34 = 2.94$ times higher at risk if you are in group 1 than if you were in group 2. The estimated regression coefficient when we have group dependant censoring came out at $-1.12$ and thus there are no major differences in the analysis for group dependant censoring in this case.
+Comparing Figure 1 and 2 aswell as comparing Figure 3 and 4, we can see that using the Kaplan-Meier estimate and finding the estimate via cox-regression results in very similar survival functions. 
+```{r, warning = FALSE}
+g1 <- data.frame(Time = rweibull(200, shape = 5.5, scale = 22.5))
+g2 <- data.frame(Time = rweibull(100, shape = 4.5, scale = 28))
+c1 <- runif(200, 20, 60)
+c2 <- runif(100, 20, 60)
+df1 <- g1 %>% 
+  mutate(cens = c1) %>% 
+  mutate(cens_ind = ifelse(Time > cens, 0, 1)) %>% 
+  mutate(Time = ifelse(cens_ind == 1, Time, cens)) %>% 
+  arrange(Time) %>% 
+  mutate(Risk = length(Time):1) %>% 
+  mutate(NAest = cumsum(cens_ind/Risk)) %>% 
+  mutate(group = 0)
+df2 <- g2 %>% 
+  mutate(cens=c2) %>% 
+  mutate(cens_ind = ifelse(Time > cens, 0, 1))%>% 
+  mutate(Time = ifelse(cens_ind == 1, Time, cens))%>% 
+  arrange(Time) %>% 
+  mutate(Risk = length(Time):1) %>% 
+  mutate(NAest = cumsum(cens_ind/Risk)) %>% 
+  mutate(group = 1)
+
+```
+
+```{r, warning = FALSE}
+joined <- full_join(df1, df2, by = c("Time", "cens", "cens_ind", "Risk", "NAest", "group"))
+
+dfj <- joined %>% 
+  arrange(Time) %>% 
+  mutate(TotRisk = length(Time):1) %>% 
+  mutate(PartEN1 = ifelse(group == 0, Risk/TotRisk, 0)) %>% 
+  mutate(group = as.factor(group)) %>% 
+  mutate(surv = exp(-NAest))
+
+#logrank test giving p = <2e-16 so H0 rejected i.e. they are not the same
+logrank <- survdiff(Surv(Time, cens_ind)~ group, data = dfj, rho = 0)
+
+#We have covariate saying if grp 1 or grp 2 and wanna see if this is significant. p-value = 5.17e-15 so they are signific i.e. groups differ
+resCox <- coxph(Surv(dfj$Time, dfj$cens_ind) ~ dfj$group)
+
+#plot survival curves KM with same censoring
+fit1 <- survfit(Surv(Time, cens_ind) ~ group, data = dfj)
+ggsurvplot(fit1, data = dfj, pval = TRUE) +
+  labs(title = "Figure 1: Survival Function estimated with Kaplan Meier")
+
+
+#Survival plot from cox-model
+surv1 <- coxph(Surv(Time, cens_ind) ~ group, data = dfj)
+  
+  group_df <- with(dfj,
+               data.frame(group = as.factor(c(0, 1))
+                          )
+               )
+ggsurvplot(survfit(surv1, newdata = group_df), data = dfj, pval = TRUE, legend.labs=c("Group 1", "Group 2"))+
+  labs(title = "Figure 2: Survival Function estimated from Cox-model")
+```
+
+```{r}
+c22 <- runif(100, 30, 60)
+
+df22 <- g2 %>% 
+  mutate(cens=c22) %>% 
+  mutate(cens_ind = ifelse(Time > cens, 0, 1))%>% 
+  mutate(Time = ifelse(cens_ind == 1, Time, cens))%>% 
+  arrange(Time) %>% 
+  mutate(Risk = length(Time):1) %>% 
+  mutate(NAest = cumsum(cens_ind/Risk)) %>% 
+  mutate(group = 1)
+
+```
+
+```{r, warning = FALSE}
+joined2 <- full_join(df1, df22, by = c("Time", "cens", "cens_ind", "Risk", "NAest", "group"))
+
+dfj2 <- joined2 %>% 
+  arrange(Time) %>% 
+  mutate(TotRisk = length(Time):1) %>% 
+  mutate(PartEN1 = ifelse(group == 0, Risk/TotRisk, 0)) %>% 
+  mutate(group = as.factor(group)) %>% 
+  mutate(surv = exp(-NAest))
+
+#logrank test giving p = <2e-16 so H0 rejected i.e. they are not the same. Samma p-värde vid ny cens
+logrank2 <- survdiff(Surv(Time, cens_ind)~ group, data = dfj2, rho = 0)
+
+#We have covariate saying if grp 1 or grp 2 and wanna see if this is significant. p-value = 5.17e-15 so they are signific i.e. groups differ.
+#Något lägre p-värde
+resCox2 <- coxph(Surv(Time, cens_ind) ~ group, data = dfj2)
+
+#plot survival curves KM group dependent censoring
+fit2 <- survfit(Surv(Time, cens_ind) ~ group, data = dfj2)
+ggsurvplot(fit1, data = dfj, pval = TRUE) +
+  labs(title = "Figure 3: Survival Function estimated with Kaplan Meier")
+
+# Survival curve estimated from cox-model
+surv2 <- coxph(Surv(Time, cens_ind) ~ group, data = dfj2)
+  
+ggsurvplot(survfit(surv2, newdata = group_df), data = dfj2, pval = TRUE, legend.labs=c("Group 1", "Group 2")) +
+  labs(title = "Figure 4: Survival Function estimated from Cox-model")
+```

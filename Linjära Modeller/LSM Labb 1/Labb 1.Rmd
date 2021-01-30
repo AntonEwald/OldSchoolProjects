@@ -1,0 +1,248 @@
+---
+title: "Labb 1"
+author: "Anton Holm"
+date: "18 september 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(pls)
+d.1 <- read.table("ANSCO1-lnx.DAT", header=TRUE)
+d.2 <- read.table("ANSCO2-lnx.DAT", header=TRUE)
+d.3 <- read.table("ANSCO3-lnx.DAT", header=TRUE)
+d.4 <- read.table("ANSCO4-lnx.DAT", header=TRUE)
+
+
+lin1 <- lm(y~x, data=d.1)
+summary(lin1)
+anova(lin1)
+
+lin2 <- lm(y~x, data=d.2)
+summary(lin2)
+anova(lin2)
+
+lin3 <- lm(y~x, data=d.3)
+summary(lin3)
+anova(lin3)
+
+lin4 <- lm(y~x, data=d.4)
+summary(lin4)
+anova(lin4)
+
+plot(lin1)
+plot(lin2)
+plot(lin3)
+plot(lin4)
+d.4
+d.3
+
+```
+
+I alla fyra fallen har vi ett väldigt litet p värde med asterisk beteckningen som visar att vi kan förkasta nollhypotesen till förmån mot alternativ hypotesen på signifikansnivån 99%, dvs det finns med stor sannolikhet en linjär korrelation mellan x och y. Vi ser också att $R^2$ värdet ligger omkring 66%. Det är ett relativt stort värde som kan ge litet stöd för linjär korrelation men det är svårt att avgöra hur stort $R^2$ behöver vara. Vårt F-värde är även det relativt högt vilket kan tala för en korrelation mellan x och y.
+
+För att övergå till plottarna börjar vi med att analysera varje data för residuals vs fitted plot. Här ska vi helst se slumpmässighet och små residualer. För data set 1 är plotten väldigt slumpmässig förutom några outliers. För data set 2 och 3 ser vi dock ett tydligt samband. För data set 4 är det svårt att avläsa då nästan all data kommer från x=8. 
+
+Vi tittar nu på QQ-plottarna för de olika data setten. Här vill vi se att punkterna följer en rak linje vilket skulle tyda på att residualerna är normalfördelade som vi vill. För data set 1 kan vi nog säga att detta är saken förutom två outliers (punkt 3 och 10) som avviker något. Detsamma gäller för dataset 2 där punkt 4 och 8 är något avvikande. För data set 3 har vi en ännu bättre anpassning efter linjen, dock avviker punkt 3 otroligt mycket och skulle behöva en individuell analys. Data set 4 har förmodligen den bästa anpassningen utefter en rak linje. 
+
+Scale-Location plotten visar på om residualerna har samma varians (åtminstone nära). Här vill vi se en rak linje med jämnt utspridda punkter. För data set 1 har vi till vänster och höger tecken på relativt lika varianser mellan residualerna. I mitten ser vi dock en större förändring i variansen. Data set 2 verkar något mer slumpmässig medan data set 3 har en tydlig ökning efter 7 på x-axeln. Data set 4 går ej att avläsa. 
+
+Den sista plotten visar om vi har några specifika punkter med stort inflytande. Dessa ligger i sådanna fall högt upp/ långt ner i högra hörnen. Vi ser att i data set 1 är punkt 3 väldigt nära Cook's distance, punkt 8 i data set 2 är långt innanför, detsamma för punkt 3 i data set 3 samt att punkt 6 är relativt nära. Dessa är punkter vi skulle vilja undersöka närmare. Data set 4 går ej att avläsa. 
+
+I slutändan må statistiken i summary låta lockande till en bra regression, men plottarna visar att så kanske inte är fallet. Mer specifikt kan vi säga:
+
+Data set 1: Här kan enkel linjär regression vara en möjlighet. Residualerna verkar följa en normalfördelning, variansen på residualerna verkar någorlunda jämna, och slumpheten i första plotten tyder på att varianserna är likafördelade, dvs att vi har relativ homogen varians. Vi skulle möjligtvis behöva undersöka punkt 3 lite närmare. 
+
+Data set 2: Om vi här bortser från våra outliers punkt 4,6 och 8 så skulle enkel linjär regression kunna fungera som modell. Tyvärr har dessa tre punkter för stort inflytande vilket vi kan see i Cook leverage plotten samt hur de ligger utanför linjen i QQ-plotten, är väldigt stora jämfört med de andra punkterna vilket vi kan se i första plotten samt att vi i Scale-Location plotten kan se att den röda linjen varierar väldigt mycket p.g.a. dessa punkter, dvs att variansen inte är konstant. Det vi hade behövt göra är att undersöka dessa punkter närmare och sedan försöka anpassa modellen utefter information vi får fram.
+
+Data set 3: Här skulle vi behöva undersöka punkt 3, samt möjligen punkt 6 närmare. Bortser vi från dessa punkter verkar en enkel linjär regression passa bra enligt plottarna. Röda linjen i Scale-Location plotten är väldigt horisontell fram tills punkt 3 och 6 drar upp den för mycket vilket hade kunnat tyda på konstant varians för de andra punkterna. Alla punkter förutom punkt 3 verkar även följa en normalfördelning. Lineariteten verkar hålla då röda linjen i första plotten håller sig nära den streckade linjen (dvs värdet 0). 
+
+Data set 4: Nej, linjär regression kan inte anses lämplig med den datan vi har. Vi skulle behöva bättre och mer versital data.
+
+
+#Task 3
+
+```{r}
+lin.rev <- lm(x~y, data=d.1)
+summary(lin1)
+summary(lin.rev)
+
+```
+
+Vi ser att p-värdet, $R^2$ värdet och F-statistikan är desamma vilket inte är så konstigt då det linjära sambandet mellan y och x självklart är densamma som mellan x och y.
+
+```{r}
+beta.hat.hat <- lin.rev$coefficients[2]
+beta.hat.hat
+alpha.hat.hat <- lin.rev$coefficients[1]
+alpha.hat.hat
+
+beta.hat <- lin1$coefficients[2]
+beta.hat
+alpha.hat <- lin1$coefficients[1]
+alpha.hat
+
+
+aa<- plot(lin1)
+bb<-plot(lin.rev)
+
+```
+
+I uppgift 2 konstaterade vi att en linjär modell kunde tillämpas väl på dataset 1 med grund i analys av plottar och R^2 värden. Vid analys av regression av x på y får vi liknande resultat, och även här kan man dra slutsatser om linjärt regressionssamband. Eftersom, även i detta fall, visar plottar av fitted vs residuals, normal QQ-plot, Scale-location och leverage-plotten att datan har karaktärsdrag som tyder på ett linjärt regressionssamband.  
+
+#Part 2
+
+
+```{r}
+
+cigg.data <- read.table("CIGARETT-lnx.DAT", header=FALSE,col.names=c("brand","tar","nico","weight",'CO'))
+cigg.data_outlier <- read.table("CIGARETT-lnx.DAT", header=FALSE,col.names=c("brand","tar","nico","weight",'CO'))
+cigg.data_outlier
+```
+
+```{r}
+lin.tar <- lm(data=cigg.data, CO ~ tar)
+plot(lin.tar,2,2)
+
+```
+
+```{r}
+
+```
+
+De värden vi får i vår linjära modell är inte riktigt vad vi skulle kunna förvänta oss. Självklart verkar det orimligt att en ciggarett släpper ut mindra kolmonoxid om den väger mer. Däremot verkar det rimligt att mängden kolmonoxid ökar ju större andel tjära än nikotin en ciggarett har då tjära består av mer kol och kvävet i nikotinet inte omvandlas till kolmonoxid. Detta förklarar att koefficienten till nikotin är negativ ty ju mindre nikotin en ciggarett har desto mer tjära har den och vice versa. 
+
+Vi har ett mycket lägre p-värde samt ett relativt sett mycket högre $R^2$ värde. Detta tyder på att modellen för olika ciggarett märken är bättre än de tidigare modellerna.
+
+```{r}
+pairs(cigg.data[,-1])
+```
+
+Om vi kollar på scatterplottarna ser vi att det tydligen finns ett förhållande mellan vikten på tjära och nikotin. Om vikten på tjära i en cigarett ökar så ökar även vikten av nikotin i cigaretten. Alltså är den tidigare förklaringen till varför koefficienten för nikotin är väldigt negativ inte aktuell längre. Vi ser å andra sidan längre ner att om vi plockar bort vår outlier, dvs märket BullDurham som vi tagit fram genom diverse plottar längre ner, att även om koefficienten framför nikotin må vara negativ hamnar den allt närmare det positiva hållet vilket verkar mer rimligt.
+Något mer som verkar orimligt är att om mängden tjära och nikotin ökar, så verkar inte vikten på cigaretten öka. När vi tar bort vår outlier ser vi dock att vikten börjar öka då tjära och nikotin mängden ökar vilket är mer rimligt.
+Vi ser också att när vi tagit bort vår outlier så minskar p-värdet med nästan det dubbla samt att $R^2$ ökar något. Då vi redan hade ett så pass högt $R^2$ värde så kan man inte förvänta sig en stor ökning. 
+
+Vi ser även i de efterföljande plottarna att residualerna verkar följa en normalfördelning och variansen hos residualerna tycks ha en jämnfördelad variation även om variansen tycks öka ju högre skattat värde på $mu$ vi får. Detta är en av anledningarna till att vi har fått ett så pass $R^2$ värde samt litet p-värde.
+
+```{r}
+
+```
+
+
+```{r}
+
+cigg.data_without <- cigg.data_outlier[-3,]
+
+MSEP_three_var <- function(Data){
+MSEP = 0
+N <- nrow(Data)
+for (i in 1:N){
+  pred_data <- Data[-i,]
+  pred_model <- lm(CO ~ tar + nico + weight,data = pred_data)
+  CO_predict <- pred_model$coefficients[1] + pred_model$coefficients[2]*Data[i,2] + pred_model$coefficients[3]*Data[i,3] + pred_model$coefficients[4]*Data[i,4]
+  MSEP = MSEP + ((Data[i,5] - CO_predict)^2)}
+  return(MSEP/N)
+}
+
+MSEP_three_var(cigg.data_outlier)
+
+MSEP_tar_nico <- function(Data,variable1,variable2){
+MSEP = 0
+N <- nrow(Data)
+for (i in 1:N){
+  pred_data <- Data[-i,]
+  pred_model <- lm(CO ~ tar + nico ,data = pred_data)
+  CO_predict <- pred_model$coefficients[1] + pred_model$coefficients[2]*Data[i,variable1] + pred_model$coefficients[3]*Data[i,variable2]
+  MSEP = MSEP + ((Data[i,5] - CO_predict)^2)}
+  return(MSEP/N)
+
+}
+
+MSEP_tar_weight <- function(Data,variable1,variable2){
+MSEP = 0
+N <- nrow(Data)
+for (i in 1:N){
+  pred_data <- Data[-i,]
+  pred_model <- lm(CO ~ tar + weight ,data = pred_data)
+  CO_predict <- pred_model$coefficients[1] + pred_model$coefficients[2]*Data[i,variable1] + pred_model$coefficients[3]*Data[i,variable2]
+  MSEP = MSEP + ((Data[i,5] - CO_predict)^2)}
+  return(MSEP/N)}
+
+MSEP_nico_weight <- function(Data,variable1,variable2){
+MSEP = 0
+N <- nrow(Data)
+for (i in 1:N){
+  pred_data <- Data[-i,]
+  pred_model <- lm(CO ~ nico + weight ,data = pred_data)
+  CO_predict <- pred_model$coefficients[1] + pred_model$coefficients[2]*Data[i,variable1] + pred_model$coefficients[3]*Data[i,variable2]
+  MSEP = MSEP + ((Data[i,5] - CO_predict)^2)}
+  return(MSEP/N)}
+
+
+MSEP_tar <- function(Data){
+MSEP = 0
+N <- nrow(Data)
+for (i in 1:N){
+  pred_data <- Data[-i,]
+  pred_model <- lm(CO ~ tar ,data = pred_data)
+  CO_predict <- pred_model$coefficients[1] + pred_model$coefficients[2]*Data[i,2]
+  MSEP = MSEP + ((Data[i,5] - CO_predict)^2)}
+  return(MSEP/N) }
+
+MSEP_nico <- function(Data){
+MSEP = 0
+N <- nrow(Data)
+for (i in 1:N){
+  pred_data <- Data[-i,]
+  pred_model <- lm(CO ~ nico ,data = pred_data)
+  CO_predict <- pred_model$coefficients[1] + pred_model$coefficients[2]*Data[i,3]
+  MSEP = MSEP + ((Data[i,5] - CO_predict)^2)}
+  return(MSEP/N) }
+
+MSEP_weight <- function(Data){
+MSEP = 0
+N <- nrow(Data)
+for (i in 1:N){
+  pred_data <- Data[-i,]
+  pred_model <- lm(CO ~ weight ,data = pred_data)
+  CO_predict <- pred_model$coefficients[1] + pred_model$coefficients[2]*Data[i,4]
+  MSEP = MSEP + ((Data[i,5] - CO_predict)^2)}
+  return(MSEP/N) }
+
+
+all_with <- MSEP_three_var(cigg.data_outlier)
+
+tn_with <- MSEP_tar_nico(cigg.data_outlier,2,3)
+tw_with <- MSEP_tar_weight(cigg.data_outlier,2,4)
+nw_with <- MSEP_nico_weight(cigg.data_outlier,3,4)
+
+t_with <- MSEP_tar(cigg.data_outlier)
+n_with <- MSEP_nico(cigg.data_outlier)
+w_with <-MSEP_weight(cigg.data_outlier)
+
+all_with_o <- MSEP_three_var(cigg.data_without)
+
+tn_with_o <- MSEP_tar_nico(cigg.data_without,2,3)
+tw_with_o <- MSEP_tar_weight(cigg.data_without,2,4)
+nw_with_o <- MSEP_nico_weight(cigg.data_without,3,4)
+
+t_with_o <- MSEP_tar(cigg.data_without)
+n_with_o <- MSEP_nico(cigg.data_without)
+w_with_o <-MSEP_weight(cigg.data_without)
+
+MSEP_table<- data.frame(c(all_with, tn_with, tw_with, nw_with, t_with, n_with, w_with),c(all_with_o, tn_with_o, tw_with_o, nw_with_o, t_with_o, n_with_o, w_with_o),row.names = c("Tar + nico + weight","Tar + nico", "Tar + weight", "Nico + weight", "Tar", "Nico", "Weight"))
+colnames(MSEP_table) <- c("With outlier","Without outlier")
+
+MSEP_table
+
+
+cigg.data_without
+```
+
+
+
+Om vi ska presentera resultatet med datan utan den tvivelaktiga är det viktigt att förklara varför vi har valt att tagit bort datan och förklara att resultatet kanske inte är optimalt p.g.a. detta. Det bör kanske även finnas med en mindra outlier analys som visar på om observationen ligger så pass långt ifrån normen att man inte behöver bry sig om den eller om det finns någon specifik anledning till varför datan blev så pass annorlunda. Var det mätfel eller ett nichat märke med unika egenskaper?
+

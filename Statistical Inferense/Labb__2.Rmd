@@ -1,0 +1,159 @@
+---
+title: "Labb.2"
+author: "Anton Holm"
+date: "19 september 2019"
+output:
+  html_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(ggplot2)
+library(RCurl)
+set.seed(931031) #Change 990101 to your date of birth
+data_url <- "https://raw.githubusercontent.com/mskoldSU/MT5003_HT19/master/Project/proj_data.csv"
+data_individ <- read.csv(text = getURL(data_url))
+idx <- sample(1:nrow(data_individ), 1000)
+data_individ <- data_individ[idx, ]
+save(data_individ, file = "proj_data.Rdata")
+
+
+```
+
+```{r}
+load("proj_data.Rdata")
+modell <- glm(Resultat ~ Alder + Kon + Utbildare, 
+              data = data_individ,
+              family = "binomial")
+summary(modell)
+
+source("functions.R")
+
+y <- matrix(data_individ$Resultat, ncol = 1)
+X <- model.matrix(Resultat ~ Alder + Kon + Utbildare, 
+                  data = data_individ)
+```
+#Task 1
+
+z värdet i summary för en glm modell syftar på värdet för wald statistkan $$\frac{\hat{\theta_i}-\theta_i}{se(\hat{\theta_i})}$$ (där i=1,2,3,4 i vårt fall) där vi antar hypotesen att $\theta=0$. Nedan utför vi därför en Newthon-Raphson simulering för att få fram $\hat{\theta}$ och där $se(\hat{\theta_i})$ är kvadratroten ur det i:te diagonalelementet av inversen till den observerade Fisher informations matrisen. Vi ser att kvoten blir väldigt nära de z värden vi får utav R, alltså kan vi vara rätt säkra på att dessa är Wald statistikor.
+```{r}
+
+Estimate <- NR(c(0,0,0,0),100, y,X)
+
+se.values <- sqrt(diag(solve(I(Estimate,y,X))))
+
+z.values.test <- numeric(4)
+for (i in 1:4){
+  z.values.test[i] <- Estimate[i]/se.values[i]
+}
+
+z.values.test
+
+  
+  
+
+```
+
+#Task 2
+Anledningen till att likelihood ratio statistikan har samma order of magnitude som wald statistikan i kvadrat är för att likelihood ratio statistikan approximativt följer en chi-2 fördelning medan wald statistikan följer en normal fördelning. Om man kvadrerar en standard normal fördelning får man en chi-2 fördelning med 1 frihetsgrad vilket är vad vi har för vår likelihood ratio statistika. Nedan ser vi våra fyra p-värden.
+```{r}
+Wald <- summary(modell)
+
+eta_ML_1 <- NR(c(0, 0, 0), 10, y, X[, -1])
+eta_ML_2 <- NR(c(0, 0, 0), 10, y, X[, -2])
+eta_ML_3 <- NR(c(0, 0, 0), 10, y, X[, -3])
+eta_ML_4 <- NR(c(0, 0, 0), 10, y, X[, -4])
+
+L_profile <- L(Estimate,dbinom,y,X)
+
+L0_1 <- L(c(0,eta_ML_1),dbinom,y,X)
+L0_2 <- L(c(eta_ML_2[1],0,eta_ML_2[c(2,3)]),dbinom,y,X)
+L0_3 <- L(c(eta_ML_3[c(1,2)],0,eta_ML_3[3]),dbinom,y,X)
+L0_4 <- L(c(eta_ML_4,0),dbinom,y,X)
+
+GLR_1 <- 2*log(L_profile/L0_1)
+GLR_2 <- 2*log(L_profile/L0_2)
+GLR_3 <- 2*log(L_profile/L0_3)
+GLR_4 <- 2*log(L_profile/L0_4)
+
+p_value_1 <- pchisq(GLR_1,1,lower.tail=F)
+p_value_2 <- pchisq(GLR_2,1,lower.tail=F)
+p_value_3 <- pchisq(GLR_3,1,lower.tail=F)
+p_value_4 <- pchisq(GLR_4,1,lower.tail=F)
+
+
+c(p_value_1,
+p_value_2,
+p_value_3,
+p_value_4)
+
+
+
+```
+
+
+#Task 3
+
+```{r}
+eta_ML2 <- NR(c(0, 0), 10, y, X[, c(-1,-3)])
+
+theta_0_2 <- c(0,0)
+
+theta3 <- c(0,eta_ML2[1],0,eta_ML2[2])
+
+T <- t(S(theta3,y,X)) %*% solve(I(theta3,y,X)) %*% S(theta3,y,X)
+T
+
+p_value <- pchisq(T, df=2, lower.tail = F)
+p_value
+```
+Vi får alltså ett p-värde på 0.04894942, dvs vi kan förkasta noll hypotesen på signifikans nivån 95%.
+
+
+#Task4
+Nedan tar vi fram divers likelihoods med 100 olika värden mellan 0 och 1 för kön. Sedan tar vi fram ett wald-konfidensintervall på nivån 05%. Till sist plottas allt tillsammans nedan där de orangea linjerna är konfidensintervallet för kön, den blåa kurvan är estimated likelihood och röda kurvan är profile likelihood. Från boken får vi även att ett 95% konfidens intervall för profile likelihooden för kön är:
+
+$$
+\{ \theta : \hat{L}_p(\theta) \geq exp [-\frac{1}{2} \chi^2_{0.05}(1) ] \}
+$$
+vilket enligt boken blir 0.147. Vi ritar även in denna linje som är lila i plotten nedan.
+```{r}
+kon_vector <- numeric(100)
+kon_varden <- seq(0,1,length.out=100)
+
+for(i in 1:100){
+  profil <- glm.fit(x = X[, -3], y = y,
+                  offset = kon_varden[i] * X[, 3],
+                  family = binomial())
+  kon_vector[i] <- L(c(profil$coeff[1],profil$coeff[2],kon_varden[i],profil$coeff[3]),dbinom,y,X)
+  }
+
+kon_estimate_vector <- numeric(100)
+for(i in 1:100){
+  kon_estimate_vector[i] <- L(c(Estimate[1], Estimate[2], kon_varden[i],Estimate[4]),dbinom,y,X)
+}
+
+
+Konf_Int_val_top <- Estimate[3] + 1.96*Se_theta.i(Estimate,y,X,3)
+Konf_Int_val_bot <- Estimate[3] - 1.96*Se_theta.i(Estimate,y,X,3)
+
+x_axis <- kon_varden
+y1 <- kon_vector
+y2 <- kon_estimate_vector
+norm_y1 <- 1/max(kon_vector)*kon_vector
+norm_y2 <- 1/max(kon_estimate_vector)*kon_estimate_vector
+
+plot(x_axis,norm_y1,col="red")
+lines(x_axis,norm_y2,col="blue")
+abline(v=Konf_Int_val_bot,col="orange")
+abline(v=Konf_Int_val_top,col="orange")
+abline(h=0.147,col="purple")
+
+
+```
+
+```

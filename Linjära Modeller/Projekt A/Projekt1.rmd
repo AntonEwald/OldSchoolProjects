@@ -1,0 +1,250 @@
+---
+title: "Projekt 1: Efterfrågan på charterres"
+author: "Simon Melamed, Anton Holm, Daniella Zhou, Liming Huang"
+date: "9/20/2019"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+
+# Innehållsförteckning
+
+1. Sammanfattning
+
+2. Beskrivning av data
+
+3. Statistisk modellering och analys av data. 
+  + 1. Förklarande modell
+    + 1. Modell 1
+    + 2. Modell 2
+    + 3. Modell 3
+    + 4. Plott analys
+  2. Prediktion
+
+4. Diskussion
+  1. Slutsatsen kring den förklarande modellen
+  2. Slutsatsen kring den prediktiva modellen
+
+5. Bilagor 
+
+
+## Sammanfattning
+
+Den här rapporten undersöker huruvida det finns ett samband mellan efterfrågan på charterresor och konjunktursvängningar. Genom att undersöka och anpassa multilinjär modeller till data har vi försökt besvara just den frågan, finns det ett samband? Syftet var att bekräfta, alternativt motbevisa, den tidigare notionen att det finns indikationer som tyder på ett negativt samband. Alltså att lågkonjunktur medför att allt fler svenskar lämnar Sverige för charterresor. 
+
+
+
+\newpage
+
+# 1. Inledning
+
+Det har tidigare funnits en föreställning om att det finns ett negativt linjärt samband mellan responsvariablen, som i detta fall är antal resenärer som lämnat Sverige med charterflyg under aktuellt kvartal, och konjunktursvängningarna. För att undersöka huruvida denna tes har statistisk signifikans ska vi undersöka olika multilinjära modeller och hur väl de passar insamlad data från åren 1965-1977. Syftet med rapporten är dels att bli mer bekant om multilinjär modellering och prediktion, men även att undersöka ifall man med hjälp av datan kan statistiskt bekräfta eller motbevisa ett samband mellan charteresemarknaden och konjunkturen. 
+
+
+# 2. Beskrivning av data
+
+I ***Tabell 1*** finns den insamlade datan som används för att anpassa en multilinjär modell. Datan är insamlad från kvartal $2$ och $3$ eftersom data från vinterhalvåret, kvartal $1$ och $4$, består av både solresor och snöresor. Till skillnad från sommarsäsongen, som nästan uteslutande består av soleresor. Detta bidrar till en större homogenitet i datasettet. 
+
+Variabeln $Y$ är vår responsvariabel medan $X1-X19$ är våra förklarande variabler. Förklaring till vad de olika variablerna representerar finns samlat i ***Tabell 2***. Eftersom datan är samlad från kvartal 2 och 3 under 13 års tid har vi totalt 26 datapunkter från vardera variabel, vilket man kan avläsa i tabell 1. 
+
+
+# 3. Statistisk modellering och analys av data. 
+
+## 3.1 Förklarande modell
+
+Vi har använt oss utav tre olika multilinjära modeller och jämfört dessa för att sedan besluta om vilken som fungerar bäst som förklarande modell.
+
+### 3.1.1 Modell 1
+
+Den första förklarande modellen, ***model_1***, fick vi fram genom manuell backward elimination där vi undersökt summarys av olika modeller och observerat huruvida alla förklarande variabler är statistiskt signifikanta. Till en början hade vi en modell med alla förklarande variabler, och sedan tog vi bort en efter en de som hade störst p-värde och var därför minst signifikant i modellen. Till slut blev det en modell med endast fyra förklarande variabler, X1, X8, X9 och X13, där alla var statistiskt signifikanta med väldigt låga p-värden. Trots de få förklarande variablerna har model_1 en hög förklaringsgrad, med ett R^2-värde på 0.9766, vilket kan avläsas i summary av model_1 i bilagorna. Dessutom är kovariansmatrisen till model_1 inkluderad i summary(mode_1), där kan man notera att det finns en relativt stor korrelation mellan X1 och X8, med korrelationsfaktor -0.85. Detta talar för att undersöka ifall det borttagningen av någon av dessa påverkar resultatet, vilket självklart genomfördes. Det visade sig att vid bortagning av en av dessa sjönk R^2-värdet något och kvarstående variabler fick något sämre p-värden. Därmed ansågs model_1 vara färdigjusterad med denna metod. 
+
+Vidare undersöktes plottar av denna modell, se bilagor, vilket tyder på en relativt god multilinjär modell. Detta gjordes på samma sätt som i model_3, läs med om hur det fungerade där.  
+
+### 3.1.2 Modell 2
+
+Till den andra förklarande modellen, ***model_2***, undersöktes hur väl medelvärden av olika förklarande variabler kunde prestera som en förklarande modell. Därav togs medelvärdet av värdena X3-X6, som alltså är medelvärdet av konjunkturbarometern sen ett år tillbaka. Samt medelvärdet av X9-X13, soltimmarna, och medelvärdet av X14-X18, medeltemperaturen under kvartalen. Dessa nya medelvärdesvariablerna namngavs sedan till m_konj, m_sol och m_temp. Model_2 består av dessa konstruerade medelvärdersvariablerna och X1, X2 och X8. X7 och X19 togs bort eftersom dessa hade högt p-värde. Denna modell ger också en hög förklaringsgrad med ett R^2-värde på 0.971 (se summary(model_2) i bilagor). Däremot inte lika väl signifikanta förklarande variabler, till exempel har m_konj ett p-värde på 0.407 vilket är något högt. Dessutom kan det avläsas i korrelationsmatrisen till denna modell att m_temp och X2 är starkt korrelerade, vilket talar emot modellens effektivitet. Modellens nackdelar överväger dess fördelar och därför förkastas den och plottas därmed ej.
+
+### 3.1.3 Modell 3
+
+Till den tredje förklarande modellen, ***model_3***, använde vi oss utav R:s inbyggda step-funktion som utför en automatisk backwardelimination. Med denna metod användes X1, X4, X6, X7, X8, X9, X11, X13, X16 och X19 som förklarande variabler. Även här kan p-värdena analyseras i summary(model_3) i avsnittet bilagor. Det anmärks då att dessa är relativt låga, i jämförelse med model_2, men högre än model_1. Även denna modell har hög förklaringsgrad med ett R^2-värde på 0.9829. Denna modell var passande eftersom den behöll konjunktursvariablerna, X4 och X6 som är av intresse för vårt syfte, till skillnad från modell 1 som tog bort dessa variabler. Därför väljer vi denna modell som slutgiltiga förklarande modell och analyserar plottar till denna modell. 
+
+Parameterskattningarna av intresse blir, enligt summary(model_3), 762.59 till X4 och -914.95 till X6. Mer om tolkningen av detta i diskussionsavsnittet. 
+
+### 3.1.4 Plottanalys
+
+Den första plotten till model_3 är en Residuals vs fitted-plot. Den ser väldigt bra ut, residualerna ser slumpmässiga ut och jämt fördelade kring noll-linjen. Dessutom visar den att residualerna är mindre till model_3 än i jämförelse med Residuals vs fitted-plotten till model_1, vilket styrker beslutet att välja model_3 över model_1.
+
+Följaktligen observeras QQ-plotten till model_1 och model_3. Det är önskvärt att punkterna följer en rak linje, vilket skulle tyda på att residualerna är normalfördelade. Till bägge modellerna är plottarna relativt bra mot mitten där de tycks följa en rak linje, däremot har bägge två "svansar" som avböjer från linjen vilket inte är optimalt. Däremot, vid jämförelse, är QQ-plotten till model_3 bättre än i QQ-plotten till model_1 där man har ännu större avvikelser från linjen, se exempelvis observation 22. 
+
+Scale-Location plottarna visar på om residualerna har konstant varians. Här önskas en rak linje med jämnt utspridda punkter. Här presterar bägge modeller likvärdigt utifrån analys av dessa plottar.
+
+Den sista plotten visar att det finns några specifika punkter med stort inflytande. För model_1 är det en punkt, observation 22, som har för stort inflytande då den ligger utanför den röda streckade linjen. Till skillnad från model_3 vars punkter alla ligger innanför intervallet. 
+
+## 3.2 Prediktion
+
+För att prediktera hur många som flyger nästkommande år under kvartal två och tre tar vi fram två stycken prediktionsmodeller. Detta för att när vi predikterar för kvartal 2 nästkommande år så har vi mer data till vårt förfogande. Om vi hade nöjt oss med endast en modell för båda kvartalen hade vi tappat denna data då den ej är kompatibel med kvartal 3.
+
+För att ta fram prediktionsmodellen för kvartal 2 började vi med att skapa en grundmodell bestående utav alla förklarande variabler som har data vi inte behöver prediktera, dvs data vi redan har tillgång till eller med väldigt stor sannolikhet kan anta, t.ex. att interrail kort inte kommer tas bort nästa år. Sedan utförde vi en manuell backwards elimination där vi testade olika varianter av grundmodellen genom att ta bort de förklarande variablerna som hade låg signifikans alternativt var högt korrolerade till en annan variabel en efter en. Vi jämförde under tiden de olika värdena på t.ex. $R^2$, p-värdet och signifikansen hos resterande variabler. Sedan testade vi olika kombinationer av dessa variabler och kom tillsist fram till den slutliga modellen. Sedan gjorde vi detsamma för nästkommande kvartal. Därefter undersökte vi residualplottarna för modellerna. För prediktions modellen för kvartal 2 såg vi att residualerna verkar följa en normalfördelning och tyder på att ha en konstant varians. Alltså tyder det på att modellen utgör en stark grund för att prediktera på.
+Modellen för kvartal 3 har inte lika mycket data att arbeta med vilket syns på residualplottarna som inte är lika säkra. Här är det inte lika självklart att residualerna tycks ha en konstant varians. Det ser ut som att trenden blir att ju större skattat värde på antal resande, desto större blir residualerna. Modellen är å andra sidan den bästa möjliga från den datan vi har vilket vi sett genom 
+Till sist utförde vi ett test med våra modeller. Vi tog bort all data från det sista året, år 1977. Sedan använde vi våra modeller för att prediktera detta år och jämförde vårt resultat med det riktiga värdet. 
+
+
+
+# 4. Diskussion
+
+## 4.1 Slutsatser kring den förklarande modellen
+
+Nå, kan man utifrån den förklarande modellen slå fast huruvida konjunkturen påverkar antal resande på charterresor? 
+Svaret blir ja. Med hjälp av model_3 har vi anpassat en multilinjär regressionsmodell med hög förklaringsgrad, låga p-värden på variablerna av intresse och väl presterande plottar. Resultaten i summary visar att skattningen för koefficienten framför X4, vilket är konjunktursbarometern i procent ett kvartal tidigare, blev  762.59. Detta innebär alltså att X4 har ett positivt linjärt samband med responsvariabeln Y, som är antal resande på charterresor. Alltså tycks en hög procent på konjunktursbarometer kvartalet tidigare bidrar till att fler resenärer åker på charterresor. Däremot, skattningen för koefficienten framför X6, vilket är konjunktursbarometern i procent tre kvartal tidigare, blev -914.95. Vilket alltså innebär att X6, har ett negativt linjärt samband med responsvariabeln Y. 
+
+Alltså har vi fastslagit att det finns ett konjunktursberoende med antalet charterresor, positivt linjärt med kvartalet tidigare, och negativt linjärt med tre kvartal tidigare.
+
+## 4.2 Slutsatser kring den prediktiva modellen
+
+För att testa hur bra våra modeller är på att prediktera kan vi nu använda R's inbyggda funktion "Predict" på våra två modeller. Detta har vi gjort på två sätt. Det första tillvägagångs sättet är att prediktera på år 1978.
+
+Eftersom vi redan har all data för varje förklarande variabel i båda modellerna kan vi enkelt skriva in dessa och få två prediktioner. 
+Vad vi har sett de tidigare åren så har trenden varit att fler reser under kvartal 3 än kvartal 2 samt att antalet resande ökar för varje år. Dock har ungefär lika många resor gjorts under de båda kvartalen de sista 2-3 åren. När vi predikterar på år 1978 får vi två värden som uppfyller samma mönster som de tidigare åren har visat.
+
+Tillvägagångssätt två innebar att vi tog bort all data från år 1977. Sedan använde vi våra modeller för att prediktera på det året med R's predict funktion. Vi jämförde sedan resultatet för båda kvartalen med det riktiga värdet och tog ett genomsnitt på detta. Där blev resultatet att prediktionen var ca -10.000 lägre i antalet resande än det riktiga värdet. 
+
+Genom dessa två tester dras slutsatsen att modellerna utför goda prediktioner.
+
+# 5. Bilagor (R-utskrifter, tabeller och diagram)
+
+```{r, include=FALSE}
+#install.packages("kableExtra")
+library(kableExtra)
+#install.packages("papeR")
+library(papeR)
+
+##### Data #####
+data <- read.table("charter-win.dat", header = F)
+colnames(data) <- c("Y","X1","X2","X3","X4","X5","X6","X7","X8","X9","X10","X11","X12",
+                    "X13","X14","X15","X16","X17","X18","X19")
+
+# Medelvärde för X3-X6 (Konjunkturinstitutets konjunkturbarometer (%))
+tre=c(data$X3)
+fyra=c(data$X4) 
+fem=c(data$X5) 
+sex=c(data$X6)
+m_konj = (tre+fyra+fem+sex)/4
+
+# Meldelvärde för X9-X13 (Soltimmar genomsnitt för Sverige (4 städer))
+nio = c(data$X9)
+tio = c(data$X10)
+elva = c(data$X11)
+tolv = c(data$X12)
+tretton = c(data$X13)
+m_sol = (nio+tio+elva+tolv+tretton)/5
+
+# Medelvärde för X14-X18 (Medeltemperaturen genomsnitt för Sverige)
+fjorton= c(data$X14)
+femton= c(data$X15)
+sexton= c(data$X16)
+sjutton= c(data$X17)
+arton = c(data$X18)
+m_temp = (fjorton+femton+sexton+sjutton+arton)/5
+
+data$m_konj <- m_konj
+data$m_sol <- m_sol
+data$m_temp <- m_temp
+
+
+##### Data beskrivning #####
+
+data_beskriv <- data.frame(Variabel=c("Y" ,paste0("X", 1:19)) , 
+                           Beskrivning=c("Kvartalsvis registrerade antal resenärer som lämnat Sverige med charterflyg",  
+                             "Årsnummer, 1, ...., 13 (1965-1977)" ,
+                             "Kvartalsnummer, 2, 3", 
+                             "Konjunkturinstitutets konjunkturbarometer (%) aktuellt kvartal", 
+                             "Dito ett kvartal tidigare", 
+                             "Dito två kvartal tidigare", 
+                             "Dito tre kvartal tidigare", 
+                             "Moms i %", 
+                             "Existens av interrailkort (0 eller 1)", 
+                             "Soltimmar aktuellt kvartal, genomsnitt för Sverige (4 städer)",
+                             "Dito ett kvartal tidigare",
+                             "Dito två kvartal tidigare",
+                             "Dito tre kvartal tidigare",
+                             "Dito fyra kvartal tidigare",
+                             "Medeltemperaturen aktuellt kvartal, genomsnitt för Sverige",
+                             "Dito ett kvartal tidigare",
+                             "Dito två kvartal tidigare",
+                             "Dito tre kvartal tidigare",
+                             "Dito fyra kvartal tidigare",
+                             "Priset för en genomsnittlig charterresa i förhållande till 
+                             konsumentprisindex, med 1964 som likställighetsår (%)"
+                             )  )
+
+
+##### Modeller #####
+
+model_1 = lm(data =data, Y ~ X1 + X8 + X9 + X13) 
+summary(model_1, correlation = T)
+plot(model_1)
+
+model_2 = lm(Y ~ m_konj + m_sol + m_temp + X1 + X2 + X8, data = data)
+summary(model_2, correlation = T)
+
+step(model_1, direction = "backward", trace=F )
+
+model_3 = lm( Y ~ X1 + X4 + X6 + X7 + X8 + X9 + X11 + X13 + X16 + X19, data = data)
+summary(model_3, correlation=T)
+plot(model_3)
+
+
+##### Prediktion #####
+
+model_pred = lm( Y ~ X1 + X6 + X8  + X13 + X17 + X18, data = data)
+summary(model_pred, correlation=TRUE)
+plot(model_pred)
+
+model_pred2 = lm( Y ~ X1 + X2 + X6 + X8 + X12 + X13 + X17 + X18, data = data)
+summary(model_pred2, correlation=TRUE)
+plot(model_pred2)
+
+model_pred3 = lm( Y ~ X1 + X2 + X8 + X13 + X18, data = data)
+summary(model_pred3, correlation=TRUE)
+plot(model_pred3)
+
+
+predict(model_pred2, data.frame("X1"=14, "X2"=2, "X6"=20, "X8"= 1, "X12"= 609, "X13" = 683, "X17" = 13.6, "X18"=9.2), interval = "prediction", level = 0.95)
+
+predict(model_pred3, data.frame("X1"=14, "X2"=3, "X8"= 1, "X13" = 609, "X18"=13.6), interval = "prediction", level = 0.95)
+
+```
+
+```{r,echo = FALSE}
+
+##### Table 1 #####
+knitr::kable(data, caption = "Insamlad data under kvartal 2 och 3", format = "latex", booktabs = TRUE) %>%
+  kableExtra::landscape() %>%
+  kable_styling(latex_options = "striped", full_width = F) %>%
+  row_spec(0, angle = 45)
+
+
+##### Table 2 #####
+knitr::kable(data_beskriv, caption = "Variabelbeskrivning", format = "latex", booktabs = TRUE) %>%
+  kable_styling(latex_options = c("striped", "scale_down"), full_width = F)
+
+##### Summary: Model_1 #####
+
+
+```
+
+```{r}
+result_1 <- summary(model_1, correlation = T)
+result_1
+
+data
+```
+
+
+
+
+
+
+
+
