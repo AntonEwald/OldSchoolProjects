@@ -1,0 +1,123 @@
+---
+title: "Labb 1"
+author: "Anton Holm & Simon Melamed"
+date: '2020-02-07'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(MASS)
+library(corrplot)
+```
+
+##Assignment 1
+
+We decided to take a closer look at the Apple and Microsoft share since they are both well established companies working in the same branch. They are also each others rivals which could make for some interesting analysis. Figure 1.1 shows the daily closing price of the Apple share.
+```{r}
+
+
+
+Apple <- read_csv('AAPL.csv') %>% 
+  mutate(logreturn = log(Close/Open))
+
+Microsoft <- read_csv('MSFT.csv') %>% 
+  mutate(logreturn = log(Close/Open))
+
+Apple %>% 
+  ggplot(aes(x=Date, y=Close)) +
+  geom_line() +
+  labs(title='Figure 1.1: Daily closing price of the Apple share')
+
+```
+
+##Assignment 2
+
+In figure 2.1 we can see the logreturn of the Apple share. Here, the logreturn is defined as:
+
+$$
+\log(\frac{S(T)}{S(0)})
+$$
+
+where $S(t)$ is the price of the share at time $t$, $t\in[0,T]$ where $t=0$ is the opening time of the stock exchange and $t=T$ is the closing time. 
+
+
+```{r}
+Apple %>% 
+  ggplot(aes(x=Date, y=logreturn)) +
+  geom_line() + 
+  labs(title='Figure 2.1: Daily logreturn of the Apple share')
+
+
+
+
+
+Delayed_Apple <- Apple[-1,]
+No_last_row_Apple <- Apple[-(nrow(Apple)),]
+
+
+#Autokorrelationen
+auto_korr <- cor(Delayed_Apple$logreturn, No_last_row_Apple$logreturn)
+```
+
+We also calculated the autocorrelation of the Apple stock which we found to be `r auto_korr`. This is quite the small correlation considering we can only get a value between $-1$ and $1$, but seeing as the value is negative, we should restrict ourselves from following trends. In other words, the negative auto-correlation implies that if the log-return of the stock is negative one day, it's more likely to be positve the following day. Hence, we would want to buy shares from a stock that had a negative log-return last day, and not jump on the bandwagon of a stock that went up the day before.
+
+##Uppgift 3
+
+By comparing figure 3.2 and figure 3.3 we can clearly see that the data fits a t-distribution with 7 degrees of freedom better than it fits a normal distribution seing as when we plot the observations against the quantiles of respective distribution they follow a straight line when plotting against the quantiles of the t-distribution more than for the normaldistribution.
+
+```{r}
+df <- 7
+x <- Apple$logreturn
+
+param <- fitdistr(x, "t", df=df, start = list(m=mean(x),s=sd(x)), lower=c(-1, 0.001,1))
+
+mean=param[[1]][1]
+sp=param[[1]][2]
+
+hist(x,prob=TRUE,ylim=c(0,35), main = "Figure 3.1: Histogram of Apples logreturn")
+
+x_axis = seq(min(x),max(x),length.out=100)
+
+lines(x_axis,(1/sp)*dt((x_axis-mean)/sp,df))
+
+
+x_normalized = (x-mean)/sp
+
+x_normalized_quantiles = sort(x_normalized)
+
+p = (1:length(x_normalized))/length(x_normalized)
+theoretical_quantiles = qt(p,df)
+
+
+
+
+plot(theoretical_quantiles, x_normalized_quantiles, xlab="theoretical quantiles",
+     ylab= "empirical quantiles",main="Figure 3.2: t distribution Q-Q Plot"); qqline(theoretical_quantiles)
+
+
+qqnorm(x_normalized, main="Figure 3.3: Normal Q-Q plot"); qqline(x_normalized)
+
+# t-distribution better
+```
+
+##Uppgift 4 & 5
+
+In figure 4.1 we can see that when the logreturn of one share increase, so does the logreturn of the other share and vice versa. This is confirmed by the correlation between them being `r Correlation`.
+
+```{r}
+both_stocks <- inner_join(Apple, Microsoft, by="Date")
+
+both_stocks %>% 
+  ggplot(aes(x=logreturn.x, y=logreturn.y)) +
+  geom_point() +
+  labs(title = "Figure 4.1: Scatterplot between the log-return of the Apple and the Microsoft share")
+
+
+#Positive Correlation goodie goodie
+Correlation <- cor(both_stocks$logreturn.x, both_stocks$logreturn.y)
+
+```
+
+

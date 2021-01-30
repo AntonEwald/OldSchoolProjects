@@ -1,0 +1,138 @@
+---
+title: "Labb1"
+author: "Anton Holm"
+date: '2021-01-29'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#### Script to Projekt I, DA4004 VT21
+library(FNN)
+library(MASS)
+library(neuralnet)
+library(tidyverse)
+library(corrplot)
+```
+
+Här nedan läser vi in datasettet Boston som innehåller information kring huspriser i Bostons förorter. Datasettet innehåller 506 observationer med 14 variabler. Nedan visas en sammanfattning av data.
+```{r}
+### Läser in data
+data(Boston)
+# glimpse(Boston)
+data <- Boston
+set.seed(19931031)
+index <- sample(1:nrow(data), round(0.75 * nrow(data)))
+train <- data[index, ]
+test <- data[-index, ]
+glimpse(data)
+```
+
+Nedan visas en korrelationsplot mellan alla 14 variabler (gjort på träningsdata och inte hela datasettet i enighet med boken Elements of Statistical Learning Sektion 7.10.2 om detta ska kunna användas för att välja vilka variabler vi vill ha med i modellen för att hålla testdata helt oberoende från allt som har med träning av modell att göra). Vi ser att t.ex. verkar variabeln `chas` som verkar vara en dummy variabel som förklarar om en bostad ligger kring en flod eller ej. Denna variabel verkar alltså inte ha speciellt stor effekt på de andra. Vi kan också se att det finns par av variabler där korrelationen nästan är perfekt, både positiv och negativ, dvs nära 1. Jämför t.ex. variabeln `dis` med `nox`, `indus` samt `age` så verkar det finnas en väldigt negativ korrelation medan mellan `tax` och `rad` så har vi en positiv korrelation nära 1 istället. Dvs, vid positiv korrelation betyder det att om en variable ökar/minskar så ökar/minskar även de andra medan negativ relation menar att om ena variabeln ökar så minskar den andra. Om vi kollar specifict på variabeln `medv` så ser vi att variabeln `lstat` verkar vara negativt korrelerad med denna medan `rm` är positivt korrelerad med `medv`. även variabler som `tax`, `ptratio` och `indus` etc verkar var något negativt korrolerade med `medv`
+
+```{r}
+### Heatmap
+corr_matrix <- cor(train)
+corrplot(corr_matrix, type = "upper")
+
+### Pairwise plots
+train %>%
+  pivot_longer(-medv, values_to = "x") %>%
+  ggplot(aes(x = x, y = medv)) +
+  geom_point() +
+  # stat_smooth() +
+  facet_wrap(~name, scales = "free_x")
+```
+
+För att nu kunna testa våra olika modeller behöver vi dela upp data i test och tränings-data. Detta gör vi med en 25/75 split nedan. 
+
+
+Vi vill nu testa att utföra linjär regression på vår data. Vid linjär regression försöker vi hitta en funktion $f(x)$, där $x$ är en vektor med våra prediktorer som minimerar uttrycket $\sum_{i=1}^N (y_i - f(x_i))^2$ där $y_i$ är det sanna värdet på responsvariabeln för observation $i$ medan $f(x_i)$ är det predikterade värdet på responsvariabeln för observation $i$ givet prediktor värderna för observation $i$ och $N$ är totala antalet observationer (i vårat fall 506. Denna summa kallas för RSS, residual sum of squares, och funktionen som minimerar detta uttryck är alltså den funktionen som passar vår data bäst. Nedan tränar vi då en linjär regressions modell på vår träningsdata och en summary av funktionen visas. Vi beräknar även medelkvadratfelet för modellen, dvs värdet på summan ovan, delat på antalet observationer $N$.
+```{r}
+### Linjär regression
+lm.fit <- glm(medv ~ ., data = train) #Tränar modellen på träningsdata
+summary(lm.fit)
+pred.lm <- predict(lm.fit, test) #Räknar ut f(x_i) i summan ovan för alla observationer i
+
+### Funktion för medelkvardratfelet
+mse <- function(actual, predicted) {
+  mean((actual - predicted)^2)
+}
+# Eg: mse(actual = test$medv, predicted = pred.lm)
+
+### Plot Prediktion vs observerade värde
+plot(pred.lm, test$medv,main = "Figure 1: Predicted vs Observed")
+abline(0,1, col = "red", lty = 2)
+```
+
+Vi ser att vi får ett medelkvadratfel på `r mse(test$medv, pred.lm)`. För att en modell ska prediktera data bra så ska man vid en plot mellan predikterade och observerade värden se att punkterna ligger på linjen $y=x$. I vårt fall ska alltså data ligga på den röda sträckade linjen. Här ser det ut som att data göra det, dock med en relativt stor spridning runt linjen. Det ser alltså ut att finnas rum för förbättring utav modellen genom att välja en delmängd av prediktorerna. För att ta fram den bästa delmängden använder jag mig utav backwards elimination, i detta fall då antalet variabler är hanterbart gör jag detta manuellt genom att kolla på p-värdet och ta bort den variabeln med högst p-värde tills alla variabler är signifikanta $\alpha = 0.05$ nivån.
+
+```{r}
+### Linjär regression
+lm.fit2 <- glm(medv ~ . - age - indus, data = train) #Tränar modellen på träningsdata
+summary(lm.fit2)
+pred.lm2 <- predict(lm.fit2, test) #Räknar ut f(x_i) i summan ovan för alla observationer i
+```
+
+Genom backwards elimination blir vi av med variablerna `age` och `indus` och får då ett medelkvadrat fel som är `r mse(test$medv, pred.lm2)` som är väldigt nära det föregående men något mindre.
+
+Vi går nu vidare och försöker använda oss utav KNN för att bygga en modell till vår data. KNN tar de $K$ observationerna som ligger närmast en ny observation i prediktionsrummet och tilldelar denna medelvärdet (vid regression) av värderna på dessa $K$ observationers responsvariabel. Modellen försöker alltså inte minimera någon loss-function på samma sätt som linjär regression försöker minimera RSS utan istället tilldelas alltså en ny observation värdet $\hat{Y}(x) = \frac{1}{K} \sum_{x_i \in N_k(x)} y_i$ där $N_k(x)$ är omgivningen runt $x$ som inkluderar de $K$ närmaste grannarna till $x$ och inga fler observationer. Vi applicerar nu denna metodik för att bygga en modell på vår träningsdata och testar denna modell mot vår test data.
+```{r}
+### K-närmaste granne regression
+x_train <- train %>% dplyr::select(-medv)
+x_test <- test %>% dplyr::select(-medv)
+y_train <- train %>% dplyr::select(medv)
+y_test <- test %>% dplyr::select(medv)
+
+pred.knn <- knn.reg(train = x_train,
+                    test = x_test,
+                    y = y_train,
+                    k = 10)$pred
+```
+
+Vi ser att vi får ett medelkvadrat fel på `r mse(pred.knn, y_test$medv)` som alltså är mycket högre än för fallet av linjär regression. Vi testar nu samma metodik för olika värden på $K$. Om vi använder $K = 1$ kommer vi såklart overfitta data och av någon anledning verkar det som att `knn.reg` ej fungerar för $K = 2$ så jag testar från $K = 3$ istället.
+
+```{r}
+knn_df <- as.data.frame(matrix(ncol=2, nrow=0))
+for(k in 3:20){
+  knn_pred <- knn.reg(train = x_train,
+                    test = x_test,
+                    y = y_train,
+                    k = k)$pred
+  knn_df[[k-2,1]] <- mse(knn_pred, y_test$medv)
+  knn_df[[k-2,2]] <- k
+}
+
+knn_df %>% 
+  ggplot(aes(x = V2, y = V1)) +
+  geom_point() +
+  geom_line() +
+  labs(title = "Figure 2: Number of neighbors vs MSE", x = "K", y = "MSE")
+```
+
+I Figure 2 ser vi att $K = 4$ ger lägst MSE strax under $33$ vilket fortfarande är högre än för linjär regression. Här skulle vi ockås ha kunnat använda korsvalidering tillsammans med "one standard error method" för att se om $K = 4$ är det bästa valet. Vi vet att komplexiteten kan beskrivas med DoF, degrees of freedom vilket i fallet för KNN är $N/k$. Alltså blir modellen mindre komplex ju större $K$ vi använder. Alltså, skulle t.ex. skillnaden mellan att välja $K = 4$ och $K = 5$ vara väldigt liten så kan man välja $K = 5$ även fast $K = 4$ ger bättre MSE. Det är alltså detta man kan använda "one standard error method" till vid korsvalidering, där vi får ett medelvärde på MSE över alla våra folds och kan sedan plotta error bars för att se om något större värde på $K$ än det som ger lägst MSE har mindre än ett standard fel högre MSE. Då väljer vi alltså det största värdet på $K$ som fortfarande ligger inom ett standard fel ifrån det värde som ger lägst MSE. För att kolla på bias-variance tradeoff tittar vi på eq(2.47) i boken The Elements of Statistical Learning. Där kan vi dela upp det förväntade prediktions felet i 3 delar. En "irreducible error" term vi inte kan göra något åt samt en bias och en varians del. De två senare uppgör vårt medelkvadratfel. Varians delen kan skrivas som $\sigma^2 / k$ där också $\sigma^2$ är vårt "irreducible error" och kan ej påverkas. Alltså minskar variansen för KNN när vi väljer större $K$. Angående bias kan vi se det på detta sätt. Om vi väljer få grannar $K$ så kommer dessa grannar förmodligen ligga relativt nära vår nya datapunkt. Alltså kommer det predikterade värdet också ligga nära det sanna värdet och ha låg bias. När vi ökar antalet grannar kan vad som helst hände och grannarna kommer förmodligen ligga väldigt långt bort om vi väljer ett stort $K$, dvs om inte $N >> K$, och alltså kommer vi att ha större bias. Så för att summera, få grannar resulterar i låg bias men hög varians medan det omvända gäller för många grannar i allmännhet. Självklart finns det specialfall.
+
+
+```{r}
+#### Neuralt nätverk
+f <- as.formula("medv ~ .")
+nn <- neuralnet(formula = f,
+                data = ...,
+                hidden = c(..., ...))
+plot(nn)
+pred.nn <- predict(nn, test)
+
+# Normalisera test data
+train_scale <- scale(x_train) %>%
+                as.data.frame() %>%
+                dplyr::mutate(medv = y_train)
+
+test_scale <- scale(x_test,
+                    center = colMeans(x_train),
+                    scale = apply(x_train, 2, sd)) %>%
+                as.data.frame() %>%
+                dplyr::mutate(medv = y_test)
+```

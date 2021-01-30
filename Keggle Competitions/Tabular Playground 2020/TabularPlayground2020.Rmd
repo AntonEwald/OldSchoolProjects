@@ -1,0 +1,158 @@
+---
+title: "TabularPlayground2020"
+author: "Anton Holm"
+date: '2021-01-23'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(MASS)
+library(rpart)
+```
+
+```{r}
+train <- read.csv("train.csv") %>% select(-id)
+test <- read.csv("test.csv")
+```
+
+```{r}
+cv_fold <- function(data, n_fold){
+    # fold_id denotes in which fold the observation
+    # belongs to the test set
+    data <- mutate(data, fold_id = rep_len(1:n_fold, length.out = n()))
+    # Two functions to split data into train and test sets
+    cv_train <- function(fold, data){
+        filter(data, fold_id != fold) %>% 
+            select(- fold_id)
+    }
+    cv_test <- function(fold, data){
+        filter(data, fold_id == fold) %>% 
+            select(- fold_id)
+    }
+    # Folding
+    tibble(fold = 1:n_fold) %>% 
+        mutate(training = map(fold, ~cv_train(.x, data)),
+               testing = map(fold, ~cv_test(.x, data)),
+               fold = paste0("Fold", fold))
+}
+```
+
+```{r}
+lm.ridge <- function(data, formula, lambda){
+    # Given data, model formula and shrinkage parameter lambda,
+    # this function returns a data.frame of estimated coefficients
+    X <- model.matrix(formula, data) # Exctract design matrix X
+    p <- ncol(X)
+    y <- model.frame(formula, data) %>% # Extract vector of responses y
+        model.extract("response")
+    # Compute parameter estimates (Eq. (3.44) in textbook)
+    R <- t(X) %*% X
+    solve(R + lambda * diag(p)) %*% t(X) %*% as.matrix(y) %>% 
+        as.data.frame() %>% 
+        setNames("estimate") %>% 
+        rownames_to_column("variable")
+}
+
+predict.ridge <- function(newdata, fit, formula){
+    model.matrix(formula, data = newdata) %*% as.matrix(fit$estimate) %>% 
+        as.numeric()
+}
+
+formula <- target ~ -1 + .
+
+```
+
+```{r}
+
+set.seed(931031)
+
+# Prepare by scaling and random reordering
+col_mean <- map(train, mean)
+col_sd <- map(train, sd)
+train_prep <- train %>%
+    map2_df(col_mean, ~.x - .y) %>% # Remove mean
+    map2_df(col_sd, ~.x / .y) %>% # Divide by sd
+    slice(sample(1:n()))
+
+train_df <- train_prep %>% slice(1:270000)
+test_df <- train_prep %>% slice(270001:300000)
+
+col_mean2 <- map(test, mean)
+col_sd2 <- map(test, sd)
+test2 <- test %>%
+    map2_df(col_mean, ~.x - .y) %>% # Remove mean
+    map2_df(col_sd, ~.x / .y)
+folds <- 10
+cv_train <- cv_fold(train, folds)
+
+formula <- target ~ .
+lambda_seq <- exp(seq(0, log(10), length.out = 10))
+```
+
+```{r}
+#Ridge
+
+best_model <- lm.ridge(train_df, formula, 0.1)
+test_df %>% mutate(predicted = predict.ridge(., best_model, formula),
+                              actual = model.frame(formula, .) %>% 
+                                  model.extract("response")) %>%
+    ggplot(aes(x = predicted, y = actual)) + 
+    geom_point()
+test_df %>% mutate(predicted = predict.ridge(., best_model, formula),
+                              actual = model.frame(formula, .) %>% 
+                                  model.extract("response")) %>%
+    summarise(mse = mean((predicted - actual)^2))
+
+as.data.frame(predic(best_model, as.matrix(test)))
+
+predict.ridge(test, best_model, formula)
+
+test %>% mutate(predicted = predict.ridge(., best_model, formula))
+```
+
+```{r}
+ridge1 <- lm.ridge(formula, data = train_df, lambda = 0.0001)
+
+model_matrix <- test[,-1] %>% as.matrix()
+
+tibble(predicted = model.matrix(formula, data = test_df) %*% best_model$estimate, actual = test_df$target) %>% mutate(rmse = sqrt(mean((predicted-actual)^2)))
+
+df <- tibble(id = test$id, target = model_matrix %*% best_model$estimate)
+
+write.csv(df, file = "Playground.csv", row.names = FALSE)
+```
+
+```{r}
+#Function to create a dataframe with columns x and predicted where
+#predicted is the mean of the resampling predictions
+bag_tree <- function(data, newdata, B = 10){
+    #creates an empty dataframe
+    predicted <- as.data.frame(matrix(ncol = B, nrow = nrow(newdata)))
+    #Each loop resample the data, fit an unpruned tree and put prediction on new data in a dataframe
+    for(i in 1:B){
+        boot <- sample_n(data, nrow(data), replace = TRUE)
+        fit <- tree_fit(y~x, boot, minsplit = minsplit3)
+        predicted[,i] <- predict(fit, newdata = newdata)
+        }
+    #Dataframe with mean predictions and x values from newdata
+    return(tibble(predicted = rowMeans(predicted)) %>% 
+      cbind(newdata) %>%
+      select(x, predicted))
+}
+
+
+tree <- rpart(formula = target~., data = train_df,
+                                      control = rpart.control(minsplit = 10, cp = 0) )
+
+pruned <- prune(tree, cp = 0.001)
+
+tibble(predicted = predict(pruned, test_df), actual = test_df$target) %>% summarise(MSE = mean((actual-predicted)^2))
+
+df_tree <- tibble(id =test$id, target = predict(pruned, test2))
+                                                                                    
+                                                                            
+write.csv(df_tree, file = "Playground_tree2.csv", row.names = FALSE)
+
+```

@@ -1,0 +1,176 @@
+---
+title: "Labb 2"
+author: "Anton Holm & Simon Melamed"
+date: '2020-03-10'
+output:
+  pdf_document: default
+  html_document: default
+---
+
+
+# Task 1
+
+For the first task we fist downloaded the historical weekly data for the stocks; Apple, BAC, FNMA, AMD and GE. Along with the market index historical data in which these stocks are traded. For each stock the simple returns were calculated. The mean vector and the covariance matrix were computed as well.
+
+```{r}
+library(tidyverse)
+
+
+Apple <- read_csv('AAPL.csv') %>%
+  mutate(logreturn = log(Close/Open),
+         return = (Close[-1]-Open)/Open,
+         mean_return = mean(return))
+
+Nas_index <- read_csv('^IXIC.csv') %>%
+  mutate(logreturn = log(Close/Open),
+         return = (Close[-1]-Open)/Open,
+         mean_return = mean(return))
+
+BAC <- read_csv('BAC.csv') %>%
+  mutate(logreturn = log(Close/Open),
+         return = (Close[-1]-Open)/Open,
+         mean_return = mean(return))
+
+FNMA <- read_csv('FNMA.csv') %>%
+  mutate(logreturn = log(Close/Open),
+         return = (Close[-1]-Open)/Open,
+         mean_return = mean(return))
+
+AMD <- read_csv('AMD.csv') %>%
+  mutate(logreturn = log(Close/Open),
+         return = (Close[-1]-Open)/Open,
+         mean_return = mean(return))
+
+GE <- read_csv('GE.csv') %>%
+  mutate(logreturn = log(Close/Open),
+         return = (Close[-1]-Open)/Open,
+         mean_return = mean(return))
+
+
+GE_port <- c(1,0,0,0,0)
+
+AMD_port <- c(0,1,0,0,0)
+
+FNMA_port <- c(0,0,1,0,0)
+
+BAC_port <- c(0,0,0,1,0)
+
+Apple_port <- c(0,0,0,0,1)
+
+mean_vector <- c(GE$mean_return[1], AMD$mean_return[1],FNMA$mean_return[1], BAC$mean_return[1],Apple$mean_return[1])
+
+return_matrix <- cbind(GE$return, AMD$return, FNMA$return, BAC$return, Apple$return)
+
+covariance <- cov(return_matrix)
+
+inverse_cov <- solve(covariance)
+
+U <- t(c(1,1,1,1,1))
+
+```
+
+# Task 2
+
+Task 2 entailed computing the weights of the minimum variance portfolio, $w_{min}$, shown in the code below. The formula used for computing the Minimum Variance Portfolio was $$w_{min}=\frac{uC^{-1}}{uC^{-1}u^T}.$$
+```{r}
+
+MVP <- (U %*% inverse_cov)/(as.numeric((U %*% inverse_cov %*% t(U))))
+
+#The weights of the minimum variance portfolio
+MVP
+```
+
+# Task 3
+For the third task we compute the weights of the market portfolio, $w_M$ with the risk-free rate being 2% per year using continuous compounding. The formula used was, $$w_{M}=\frac{(m-R u)C^{-1}}{(m-R u )C^{-1} u^t}.$$
+
+
+```{r}
+Market_Portfolio <- ((mean_vector - (exp(0.02/52)-1%*%U)) %*% inverse_cov)/as.numeric(((mean_vector-(exp(0.02/52)-1)*U)%*%inverse_cov%*%t(U)))
+
+#The weights of the market portfolio
+Market_Portfolio
+
+```
+
+# Task 4 & 5
+
+In Figure 1 we can see the minimum variance line. In figure 2 we also added portfolios where the weight is all in a single stock. Obviously the risk for these portfolios will be higher which creates the distortion in our graph in figure 2. The upper part of the curve, also called the Markwitz bullet, is called the efficient frontier. You only pick portfolios on the efficient frontier, if you like money that is, since, for any portfolio not on the efficient frontier, there is a portfolio on the efficient frontier with the same risk, but higher expected return. The point closest to the y-axis is the minimum variance portfolio.
+
+```{r}
+#Creates all portfolios, the expected return of each portfolio using the average return of time-steps 10years back and their volatility.
+stocks_port <- cbind(GE_port, AMD_port, FNMA_port, BAC_port, Apple_port)
+s <- seq(-2,2,0.1)
+w <- s %*% MVP + (1-s)%*%Market_Portfolio
+all_portfolios <- rbind(Market_Portfolio,w, MVP, stocks_port)
+Market_Portfolio
+
+all_portfolios[1,]
+
+all_portfolios_mean <- all_portfolios %*% mean_vector
+all_portfolios_risk <- sqrt(diag(all_portfolios %*% covariance %*% t(all_portfolios)))
+portfolio_plotting <- cbind(all_portfolios_mean, all_portfolios_risk) %>% as.data.frame()
+portfolio_plotting[1,]
+#Plots our portfolios except the ones with all weight in a single stock for better visual effect
+
+portfolio_plotting[1:43,] %>%
+  ggplot(aes(x=all_portfolios_risk, y=V1)) +
+  geom_point() +
+  geom_point(color="red", x=0.0411065   , y=0.003984256)        +
+  geom_point(color="green", x=0.04586918                                        , y=0.005905684                         )       +
+  labs(title = 'Figure 1: Portfolios on the expected/risk plane')
+
+# MARKET PORTFOLIO GREEn, MIN VAR PORT RED
+
+#Plots our portfolios including with all weights in a single stock
+portfolio_plotting %>%
+  ggplot(aes(x=all_portfolios_risk, y=V1)) +
+  geom_point() +
+  labs(title = 'Figure 2: All portfolios on the expected/risk plane')
+```
+
+# Task 6
+
+In the table below we show the beta values of each stock calculated in two different ways. But what is beta? The risk of a company is called the volatility and is the standard deviation of the stock. But the volatility can be divided into two different risks, systematic risk and non-systematic risk. The non-systematic risk is company specific. As an example, a non-systematic risk is the risk of the CEO getting fired, which will only effect the specific company. The non-systematic risk will be averaged out when we have many different stocks in our portfolio. For this reason, we are only interested in the systematic risk. This is our beta. The higher the beta, the higher the risk, the higher expected return is expected. We can easily see that the different ways of calculating the beta values does not give us the same result.
+
+Beta V1 below is calculated using the formula, $$\beta_v = \frac{\mu_V-r_F}{\mu_m-r_f},$$ which is the more general formula and applies to all portfolios and individual securities, whereas Beta V2, calculated using the formula $$\beta_V=\frac{Cov(K_V,K_M)}{\sigma^2_M}$$ only applies to portfolios on the capital market line. This is the reason to why they differ.
+
+```{r}
+
+#Expected value of market portfolio
+mu_mp <- as.numeric(Market_Portfolio %*% mean_vector)
+
+#Risk free rate is 0.02
+rate_free <- exp(0.02/52)-1
+
+#Expected values of stocks is mean_vector
+
+#Betas for each stock with version 1 by theorem 5.13 P.123 Capinsky et al
+beta_V1 <- (mean_vector - rate_free)/(mu_mp-rate_free)
+
+
+#Create all portfolios with individual stocks
+GE_port <- c(1,0,0,0,0)
+AMD_port <- c(0,1,0,0,0)
+FNMA_port <- c(0,0,1,0,0)
+BAC_port <- c(0,0,0,1,0)
+Apple_port <- c(0,0,0,0,1)
+stocks_port <- cbind(GE_port, AMD_port, FNMA_port, BAC_port, Apple_port)
+
+#Returns including market index NAS
+returns <- cbind(Nas_index$return,GE$return, AMD$return, FNMA$return, BAC$return, Apple$return)
+
+#Covariance matrix including stocks and market index
+Covariance_Nas <- cov(returns)
+
+#Betas for each stock using Definition 5.3 P.121 Capisnky et al
+beta_V2 <- Covariance_Nas[1,-1]/Covariance_Nas[1,1]
+
+#Dataframes of both beta versions together
+Both_betas <- cbind(beta_V1, beta_V2) %>%
+  as.data.frame()
+
+Both_betas
+
+
+
+  ```
