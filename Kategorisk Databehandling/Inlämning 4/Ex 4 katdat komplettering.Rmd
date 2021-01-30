@@ -1,0 +1,192 @@
+---
+title: "Ex4"
+author: "Anton Holm, Simon Melamed"
+date: '2019-12-09'
+output:
+  word_document: default
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+library(pander)
+```
+
+# Summary
+
+For this execise we've been provided additional data concerning the study from exercise 3. Where we now know information on smoking habits of the mother and gestational age in days. For this exercise we will explore different regression models, and try to interpret the one that fits most appropriately to our new data set.
+
+```{r}
+Age<-c("<30","<30","<30","<30","<30","<30","<30","<30", "30+","30+","30+","30+","30+","30+","30+","30+")
+Survival<-c("no","yes","no","yes","no","yes","no","yes","no","yes","no","yes","no","yes","no","yes")
+Smoking <- c("<5","<5","<5","<5","5+","5+","5+","5+","<5","<5","<5","<5","5+","5+","5+","5+")
+Gestational<- c("<260","<260","260+","260+","<260","<260","260+","260+","<260","<260","260+","260+","<260","<260","260+","260+")
+n<-c(50,315,24,4012,9,40,6,459,41,147,14,1594,4,11,1,124)
+data41 <- data.frame(Age,Smoking,Gestational,Survival,n)
+
+```
+
+
+```{r}
+
+model41a<-glm(n~Age*Smoking*Gestational*Survival, family=poisson(link=log), data=data41)
+
+model41b<-glm(n~(Age*Smoking*Gestational) + (Age*Smoking*Survival) + (Age*Survival*Gestational) + (Survival*Smoking*Gestational), family=poisson(link=log), data=data41)
+
+model41c<-glm(n~(Age*Smoking) + (Age*Survival) + (Age*Gestational) + (Survival*Smoking) + (Survival*Gestational) + (Smoking*Gestational), family=poisson(link=log), data=data41)
+
+model41d<-glm(n~(Age*Smoking) + (Age*Survival) + (Survival*Gestational), family=poisson(link=log), data=data41)
+
+model41e<-glm(n~(Age*Smoking) + Survival + Gestational, family=poisson(link=log), data=data41)
+
+model41f<-glm(n~Age + Smoking + Survival + Gestational, family=poisson(link=log), data=data41)
+
+
+drop1(model41a, test="LRT") #XYZV
+pa <- round(pchisq(model41a$deviance, df=model41a$df.residual, lower.tail=FALSE),5)
+
+#drop1(model41b, test="LRT") #Alla 3-way interaction
+pb<- round(pchisq(model41b$deviance, df=model41b$df.residual, lower.tail=FALSE),5)
+
+#drop1(model41c, test="LRT") #Alla 2-way
+pc <- round(pchisq(model41c$deviance, df=model41c$df.residual, lower.tail=FALSE),5)
+
+#drop1(model41d, test="LRT") #BW Elim -> XY,XV,ZV
+pd <- round(pchisq(model41d$deviance, df=model41d$df.residual, lower.tail=FALSE),5)
+
+#drop1(model41e, test="LRT") #XY, Z, V
+pe <- round(pchisq(model41e$deviance, df=model41e$df.residual, lower.tail=FALSE),5)
+
+#drop1(model41f, test="LRT") #X,Y,Z,V
+pf <- round(pchisq(model41f$deviance, df=model41f$df.residual, lower.tail=FALSE),5)
+
+rad2 <- t(c("(XYZV)", 0.0000000, round(model41a$df.residual,5), 1))
+rad3 <- t(c("(XYZ,XYV,XZV,YZV)", round(model41b$deviance,5), model41b$df.residual, pb))
+rad4 <- t(c("(XY,XZ,XV,YZ,YV,ZV)", round(model41c$deviance,5), model41c$df.residual, pc))
+rad5 <- t(c("(XY,XV,ZV)", round(model41d$deviance,5), model41d$df.residual, pd))
+rad6 <- t(c("(XY,Z,V)", round(model41e$deviance,5), model41e$df.residual, pe))
+rad7 <- t(c("(X,Y,Z,V)", round(model41f$deviance,5), model41f$df.residual, pf))
+
+modeltable <- as.data.frame(rbind(rad2,rad3,rad4,rad5,rad6,rad7))
+colnames(modeltable) <- c("Model","Deviance","df","P-value")
+
+
+```
+
+To find a log-linear model that fits our data well we use backwards elimination. We have the variables $X$ for mothers age, $Y$ for Smoking habits, $Z$ for length of pregnancy and $V$ for child survival all being binary variables where $X=1$ means mother is over 30 years old, $Y=1$ the mother smokes more than 5 cigarettes per day, $Z=1$ 260 or more days and $V=1$ child survived. The data can be seen below:
+
+```{r}
+pander(data41)
+
+```
+
+We start by taking into consideration every possible interaction parameter in our model, also called the saturated model. We then remove the paramater that shows to be the least significant for our model until we are left with the independent model. We decide to include the model with all three-way interactions, all two-way interactions and the model that we are left with if we keep using BW-elimination until all paramaters have a significance impact on the significance level $\alpha=0.05$ which was the model $(XY,XV,ZV)$. Below is a table with the Deviance, degree of freedom and relevant p-value. The test we use is the likelihood-ratio test between the model we are interested in examining and the saturated model which is why we don't have any relevant information in the first row since we can't compare the saturated model with it self. The test we are doing can be written as:
+
+$$
+G^2(M_0)=2(L(XYZV)-(L(M_0))=\sum_{i,j,k,l}n_{i,j,k,l} log(\frac{n_{i,j,k,l}}{\hat{\mu}_{i,j,k,l}})
+$$
+where $M_0$ is our model of interest and the statistic is under the null-hypothesis converging towards a chi-squared distribution with df equal to the number of paramaters in the saturated model minus the number of paramaters in the model we are testing ($M_0$). The null-hypothesis we are tesiting is that our model $M_0$ holds against the alternativ hypothesis that it does not but the saturated model does hold.
+```{r}
+pander(modeltable)
+```
+We have the models, in order from top to bottom:
+
+The saturated model
+
+The model without four-way interaction term
+
+The model without four, and three-way interaction terms
+
+The model without four and three-way interaction but also with only 3 two-way interaction terms
+
+The model with a single interaction term
+
+The independent model.
+
+
+
+### Task 2
+
+By analyzing the table that we created in task 4 we first note that the p-values for the independent model, (X,Y,Z,V) along with the model with a single interaction term, (XY,Z,V), both had low p-values. This implies that the saturated model is to be considered in favor of these models, therefore these models are ruled out.
+
+We test the null-hypothesis $H_0=$ The model of interest holds, against the alternativ model $H_a=$ the saturated model holds but not the model of interest. Since for the remaining models we have large p-values, we can not reject the null-hypothesis.
+
+We use that the difference in the statistics $G^2(M_H)-G^2(M_A)$ is chi-squared distributed, under the null hypotheises that $M_H$ holds. The degrees of freedom for this test is the difference in degrees of freemdom between $M_H$ and $M_A$ were $M_H$ is the model of interest and $M_A$ is the larger model we are testing against. So we start by testing the model with two-way interaction terms, $M_H=(XY,XZ,XV,YZ,YV,ZV)$, against the larger model, $M_A=(XYZ,XYV,XZV,YZV)$. From the table above we see that, $$G^2(M_{H_0})-G^2(M_A)=1.72254 -0.35935 = 1.36319 \stackrel{H_0}{\sim} \chi^2(5-1),$$
+The 95% quantile for a chi square distribution with 4 degrees of freedom is appriximately $9.5$. Therefore can we not reject the hypothesis in favor of the alternative. We continue to test the model with 3 two-way interactions against our $M_H$.
+
+If we now consider $M_H$ to be  $(XY,XV,ZV)$ and $M_A = (XY,XZ,XV,YZ,YV,ZV)$, we then get
+$$G^2(M_{H_0})-G^2(M_A)=- 7.71973 - 1.72254 = 5.99719 \stackrel{H_0}{\sim} \chi^2(8-5).$$ Similarily for this test, we compare it to the 95% quantile for a chi square distribution with 3 degrees of freedom, which is $7.8$. Since our test statistic is less than this quantile, we can not reject the hypothesis in favor of the alternative. These test, along with the fact that is easier to work with less variables, are the reasons that we proceed to interpret the model $(XY,XV,ZV)$.
+
+The model we have chosen is therefor the model with 3 association terms. We get the model:
+
+$$
+log(\mu_{ijkl})=\lambda+\lambda_i^X+\lambda_j^Y+\lambda_k^Z + \lambda_l^V+\lambda_{ij}^{XY}+\lambda_{il}^{XV}+\lambda_{kl}^{ZV}
+$$
+
+where $\lambda$ is the baseline for the model, $\lambda_i^X$ is the marginal effect of $X$ at level $i$ with $i=1,2$ and dito for the remaining three variables just swapping indexes, and $\lambda_{ij}^{XY}$ and being the interaction effect between $X$ and $Y$ at level $i,j$ and dito for the other two interaction paramaters where all associations are significance since we chosed the model we got by doing backwards elimination until all paramaters were significant on a significance level of $\alpha=0.05$.
+
+If we take into consideration the restrictions being imposed on a log-linear model, explained in detail in previous lab, we get that the logarithm of odds ratio for $X$ and $Y$ is:
+
+$$
+\log (\theta_{XY}) = \lambda_{11}^{XY} + \lambda_{22}^{XY} - \lambda_{12}^{XY} - \lambda_{21}^{XY}=\lambda_{11}^{XY}
+$$
+
+And by the same method we get the remaining log odds ratios to be:
+
+$$
+\log (\theta_{XV}) = \lambda_{11}^{XV}
+$$
+
+$$
+\log (\theta_{ZV}) = \lambda_{11}^{ZV}
+$$
+
+Hence we can get the estimated odds ratios imidieatly from the summary of our model:
+
+$$
+\hat{\theta}_{XY} = \exp(\hat{\lambda}_{11}^{XY})=exp(-0.40431) = 0.6674,
+$$
+which implies that if the mother's age is over 30, the odds of her smoking is 0.6674 times the odds of her smoking if she is younger than 30 years old,
+$$
+\hat{\theta}_{XV} = \exp(\hat{\lambda}_{11}^{XV})=exp(-0.55058) = 0.5766
+$$
+which implies that if the mother's age is over 30, the odds of the child surviving is 0.5766 times the odds of the child surviving if the mother is younger than 30 years old and
+$$
+\hat{\theta}_{ZV} = \exp(\hat{\lambda}_{11}^{ZV})=exp(3.32798) = 27.88196
+$$
+which implies that if the length of pregnancy is longer than 260 days, the odds of the child to survive is almost 28 times greater than if the pregnancy was shorter than 260 days.
+
+To get a confidence interval we take the exponential of the confidence interval for the log odds ratio and get that the confidence interval for $\theta_{XY}$ is $(exp(\hat\lambda_{11}^{XY} - 1.96\cdot SE(\hat\lambda_{11}^{XY})),exp(\hat\lambda_{11}^{XY} + 1.96\cdot SE(\hat\lambda_{11}^{XY}))) = $(0.5493302, 0.8109374). By the same method we get the other confidence intervals. The confidence interval for $X$ and $V$ is then $(0.413834, 0.8034265)$ and for $Z$ and $V$ we get the confidence interval $(19.5, 39.86637)$.
+
+## Task 3
+
+Now we'll explore an appropriate logistic regression model instead. Using a backward elimination process, we found that each interaction term was insignificant, so we restrain ourselves to the single effect parameters. With survival of the child, V as reponse variable, and age of mother, X along with gestational length, Z and smoking habits, Y as the covariates. So we have the model,
+
+$$p(x,y,z)=P(V=1|X=x, Y=y, Z=z)= \frac{e^{\alpha+\beta_1x+\beta_2y+\beta_3z}}{1+e^{\alpha+\beta_1x+\beta_2y+\beta_3z}}.$$
+
+From the summary of this model, shown below, we see that the estimates for $\alpha$ is $\hat{\alpha}= 1.8139$, $\hat{\beta_1}=-0.4675$, $\hat{\beta_2}=-0.4228  $ and  $\hat{\beta_3}= 3.3098$. The estimate of $\beta_2$ reflects the relationship between the response and the covariate smoking. From previous assignments we have shown that the estimated oddsratio is $\hat{\theta} =e^{\hat{\beta_2}}$, so in this case we have that the oddsratio is $e^{-0.4228}=0.655$, meaning that the odds of the child to survive when $Y=1$ (the mother smokes frequentely) is $0.655$ times the odds of the child to survive when $Y=0$ (mother smokes less frequent). However, this result is not significant on significance level $0.05$ since it has a p-value at $0.1$ (see summary), therefore can we not with statistical confidence claim that smoking has an negative effect on the childs survival propability, given this data. We can also see that the upper limit of the confidence interval for the oddsratio is 1.0958 meaning that the value 1 is included in the confidence interval. Since we have values both under and over 1 in the confidence interval we can't say with statistical confidence whether smoking has a negative, positive or no effect at all on the survival rate of a child even though data might suggest a negative effect.
+
+
+```{r}
+model43 <- glm(Survival~ Age + Smoking + Gestational, family = binomial(link=logit), weights = n, data=data41)
+
+summary(model43)
+
+```
+
+
+## Task 4
+
+We can now find the log linear model that is equivalent to the logistic regression model that we had in task 3. According to Agresti, p 354, 3rd edition, we have that the following log linear model is equivalent to our logistic model $$ \log(\mu_{ijkl})=\lambda + \lambda^V_l + \lambda^X_i+\lambda^Y_j+\lambda^Z_k+\lambda^{XV}_{il}+\lambda^{YV}_{jl}+\lambda^{ZV}_{kl}+\lambda^{XY}_{ij}+\lambda^{XZ}_{ik}+ \lambda^{YZ}_{jk}+ \lambda^{XYZ}_{ijk}.$$
+
+Summary for this model is shown below,
+
+```{r}
+model41d2<-glm(n~(Age*Smoking) + (Age*Survival) + (Age*Gestational) + (Survival*Smoking) + (Survival*Gestational) + (Smoking*Gestational) + (Age*Gestational*Smoking), family=poisson(link=log), data=data41)
+
+summary(model41d2)
+```
+
+The relevant estimations here are for survival, age:survival, smoking:survival and survival:gestational. We can see that these are more or less identical to the estimations in our logistic model with the same being true for standard error for these estimations. To conclude, we have that $\lambda_1^V = \alpha$, $\lambda_{11}^{XV}=\beta_1$, $\lambda_{11}^{YV}=\beta_2$ and $\lambda_{11}^{ZV}=\beta_3$

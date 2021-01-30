@@ -1,0 +1,495 @@
+---
+title: "Labb 1"
+author: "Anton Holm & Simon Melamed"
+date: '2019-11-08'
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F)
+library(tidyverse) #loads the package tidyverse
+library(scales)
+library(epitools)
+library(MASS)
+library(pander)
+```
+
+```{r}
+tab1<- as.table(rbind(c(309, 191), c(319, 281)))
+dimnames(tab1) <- list(gender = c("women", "men"),opinion = c("favor","against"))
+
+```
+
+
+
+```{r}
+#Creates a matrix of the results from the survey for easy access.
+result <- cbind(c(309,319,628),c(191,281,472),c(500,600,1100))
+
+#Creates table 1.1
+survey_table <- data.frame(c(309,319,628),c(191,281,472),c(500,600,1100),row.names=c("Women","Men","Total"))
+colnames(survey_table) <- c("In favor", "Against", "Total")
+```
+
+```{r}
+#Calculates the percentage and rounds it to two decimals while converting
+#it to percent.
+men_y <- percent(round(result[2,1]/result[2,3], digits=4)) 
+men_n <- percent(round(result[2,2]/result[2,3], digits=4))
+women_y <- percent(round(result[1,1]/result[1,3], digits=4))
+women_n <- percent(round(result[1,2]/result[1,3], digits=4))
+
+#Creates table 1.2
+perc_table <- data.frame(c(women_y, men_y),c(women_n, men_n), row.names=c("Women","Men"))
+colnames(perc_table) <- c("In favor", "Against")
+
+
+number_obs <- data.frame(250,300,314,236)
+colnames(number_obs)=c("Amount of women","Amount of men","Amount in favor","Amount against")
+```
+
+```{r}
+
+#Calculates the percentage and rounds it to two decimals while converting
+#it to percent.
+yes_W <- percent(round(result[1,1]/result[3,1], digits=4)) 
+yes_M <- percent(round(result[2,1]/result[3,1], digits=4))
+no_W <- percent(round(result[1,2]/result[3,2], digits=4))
+no_M <- percent(round(result[2,2]/result[3,2], digits=4))
+
+```
+
+
+```{r}
+
+n <- 1100
+ML_table <- data.frame(c(500*628/n, 600*628/n), c(500*472/n, 600*472/n))
+colnames(ML_table) <- c("ML_1j", "ML_2j")
+
+
+G_stat <- 2 *(result[1,1]*log(result[1,1]/ML_table[1,1])+result[2,1]*log(result[2,1]/ML_table[2,1])+result[1,2]*log(result[1,2]/ML_table[1,2])+result[2,2]*log(result[2,2]/ML_table[2,2]))
+
+
+Chi_stat <-  (result[1,1]-ML_table[1,1])^2/ML_table[1,1]+(result[2,1]-ML_table[2,1])^2/ML_table[2,1]+(result[1,2]-ML_table[1,2])^2/ML_table[1,2]+(result[2,2]-ML_table[2,2])^2/ML_table[2,2]
+
+table_stats <- data.frame(cbind(G_stat,Chi_stat))
+colnames(table_stats) = c("G-statistic", "Chi-statistik")
+```
+
+```{r}
+
+our_odds <- data.frame((result[1,1]/n *result[2,2]/n)/(result[1,2]/n*result[2,1]/n),row.names = c("our odds"))
+
+
+```
+
+```{r}
+
+odds_risk_tab<- data.frame(c(1.424,1.119,1.815),c(1.162,1.050,1.287), c(1.425,1.12,1.81),c(1.166,1.05,1.28),row.names = c("Estimate","Lower","Upper"))
+colnames(odds_risk_tab) <- c("R´s Odds","R´s Risk", "Our Odds", "Our Risk")
+
+X_G_stat <- data.frame(c(8.297921,8.297921), c(8.322320 ,8.32232),row.names = c("R´s", "Ours"))
+colnames(X_G_stat) <- c("Chi squared", "Likelihood ratio")
+```
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+
+#CODE FOR EXCERCISE 2
+
+
+UOC <- data.frame(c(557,1198, 1755),c(1278,1493,2771), c(1835,2691,4526))
+colnames(UOC) <- c("Admitted", "Not admitted","Total applicants")
+rownames(UOC) <- c("Women", "Men", "Total")
+
+```
+
+```{r}
+
+p_men <- 1493/2691
+p_women <- 1278/1835
+prob_UOC <- data.frame(c(1-p_women,1-p_men),c(p_women, p_men))
+colnames(prob_UOC) <- c("P(admission)", "P(no admission)")
+rownames(prob_UOC) <- c("Women", "Men")
+
+```
+
+```{r}
+n2 <- 4526
+ML2_table <- data.frame(c(1835*1755     /n2, 2691*1755  /n2), c(1835*2771/n2, 2691*2771/n2))
+colnames(ML2_table) <- c("ML_1j", "ML_2j")
+
+
+G_stat2 <- 2 *(UOC[1,1]*log(UOC[1,1]/ML2_table[1,1])+UOC[2,1]*log(UOC[2,1]/ML2_table[2,1])+UOC[1,2]*log(UOC[1,2]/ML2_table[1,2])+UOC[2,2]*log(UOC[2,2]/ML2_table[2,2]))
+
+Chi_stat2 <-  (UOC[1,1]-ML2_table[1,1])^2/ML2_table[1,1]+(UOC[2,1]-ML2_table[2,1])^2/ML2_table[2,1]+(UOC[1,2]-ML2_table[1,2])^2/ML2_table[1,2]+(UOC[2,2]-ML2_table[2,2])^2/ML2_table[2,2]
+
+table_stats2 <- data.frame(cbind(G_stat2,Chi_stat2))
+colnames(table_stats2) = c("G-statistic", "Chi-statistik")
+
+
+```
+
+```{r}
+
+odds.ratio2 <- (UOC[1,1] *UOC[2,2])/(UOC[1,2]*UOC[2,1])
+```
+
+```{r}
+
+odds_table <- rbind(c(1000000, 998188), c(2000000, 1988888))
+colnames(odds_table) <- c("A","B")
+rownames(odds_table) <- c("C","D")
+```
+
+
+
+### Summary
+
+Exercise 1.1 aims to analyse data from a survey regarding abortion by using different methods taught in class such as odds ratio, relative risk and and Pearsons $X^2$ statistic to name a few. The data is shown in the $2x2$ contingency table below.
+
+```{r}
+pander(survey_table)
+```
+
+### Some notations and explanations
+
+We have two categorical variables $X$ and $Y$ both with two categories $i,j=1,2$. $X$ describes the gender of the person taking the survey having categories woman and man. $Y$ describes the opinion of the person having categories "in favor" and "against" abortion. We denote $\pi_{ij}=P(X=i, Y=j)$ as the probability of the gender being of category $i$ and the opinion of category $j$. The amount of observations in cell $i,j$ is denoted as $n_{ij}$ and $n_{i+} = \sum_j n_{ij}$. 
+
+
+## Exercise 1.1
+
+### Part 1 
+If we want to calculate the percentage of people in favor and against abortion for both genders seperately, we simply calculate the estimated joint probabilities:
+
+$$\hat{\pi}_{ij}=\frac{n_{ij}}{n_{i+}}$$ 
+
+for $i=1,2,~j=1,2$. The result is shown in the table below.
+
+```{r}
+pander(perc_table)
+```
+
+### Part 2
+Seeing as we have fixed total number of individuals, we can regard the data as being sampled from a multinomial distribution $N=(N_{11},N_{12},N_{21},N_{22}) \sim Mult(n;\pi_{11},\pi_{12},\pi_{21},\pi_{22})$ where we have 4 categories and 3 degrees of freedom with for example free parameters $\pi_{11},\pi_{1+},\pi_{+1}$ where $\pi_{i+}=\sum_j \pi_{ij}$ We call this model $M$. Now, we want to test the hypothesis that men and women have the same opinion regarding abortion. That is, we want to test if gender and opinion is independent.  Mathematically we can formulate our hypothesis as:
+$$ \begin{array}{lcl} H_0: \pi_{ij}=\pi_{i+}\pi_{+j} \\ H_a: \pi_{ij} \neq \pi_{i+}\pi_{+j}, ~~~~for~~at~~least~~some~~i,j   \end{array}$$
+
+Gender and opinion being independent is a submodel $M_0$ with $q=2$ degrees of freedom.
+Now we want to calculate Pearsons $X^2$ test statistic to test the independency between gender and opinion. Pearssons $X^2$ statistic is defined as:
+$$X^2 = \sum_{i,j}\frac{(n_{ij}-\hat{\mu}_{ij})^2}{\hat{\mu}_{ij}} \overset{H_0}{\sim} \chi^2_{p-q}$$
+Here $\hat{\mu}_{ij}$ is the ML-estimate of the expected number of observations in cell i,j $(\mu_{ij}=n\cdot\pi_{ij})$ which we under the null hypothesis get as : $$\hat{\mu}_{ij}=n\cdot\hat{\pi}_{i+}\cdot\hat{\pi}_{+j}=n\cdot\frac{n_{i+}}{n}\cdot\frac{n_{+j}}{n}=\frac{n_{i+}\cdot n_{+j}}{n}$$ We have that $n_{i+}$ is the number of observations in row $i$, $n_{+j}$ is the number of observations in column $j$ and $n=\sum_{ij}n_{ij}$. In our case, $p-q=3-2=1$. Now, to calculate Pearson´s $X^2$ test statistic for our data, we simply get $n_{ij}$ and $\hat{\mu}_{ij}$ by plugging in the observations from our $2x2$ contingency table from the summary. This gives us the result $X^2=8.297921$ which is larger than the $99 \%$ quantile of a chi-squared distribution which have the value of $6.635$. Therefor we can reject the null-hypothesis on a $99 \%$  confidence level in favor of the alternative hypothesis.
+
+We also want to calculate the likelihood ratio statistic $G^2$. We obtain this statistic as:
+$$G^2=2 \sum_{ij}n_{ij}\log\frac{n_{ij}}{\hat{\mu}_{ij}} \overset{H_0}{\sim} \chi^2_{p-q}$$
+Once again, by using the data from Table 1.1 we can easily calculate the likelihood ratio statistic and get that $G^2=8.32232$ which we compare to the $99 \%$ quantile of a $\chi^2$ distribution with one degree of freedom. The likelihood ratio statistic is obviously larger which mean that we reject the null-hypothesis in favor of the alternative hypothesis on a $99 \%$ confidence level. In conclusion, we can say with statistical significance that men and women have different opinions regarding abortion.
+
+### Part 3
+For a probability $\pi$ we define the odds to be $\Omega = \frac{\pi}{1-\pi}$. For example, in our case, having a 2x2 contingency table with cell probability $\pi_{ij}$, we get the odds within row i to be $\Omega_i=\frac{\pi_{i1}}{1-\pi_{i1}}=\frac{\pi_{i1}}{\pi_{i2}}$ for $i=1,2$. The odds ratio between two rows is then $\theta=\frac{\Omega_1}{\Omega_2}$.
+
+We now choose to calculate the odds ratio between being in favor of abortion if you are a woman ($P(Y=1 | X=1)/P(Y=2 | X=1)$)  and being in favor of abortion if you are a man ($P(Y=1 | X=2)/P(Y=2 | X=2)$). We therefore get the odds ratio $\theta$ as:
+$$\theta=\frac{P(Y=1|X=1)}{P(Y=2|X=1)}\cdot\frac{P(Y=2|X=2)}{P(Y=1|X=2)}=
+\frac{\pi_{11}\cdot\pi_{22}}{\pi_{21}\cdot\pi_{12}}$$
+Since the true value of $\pi_{ij}$ is unavailable in our scenario, we estimate $\pi_{ij}$ with $\hat{\pi}_{ij}=\frac{n_{ij}}{n}$ This gives us the estimated odds ratio to be:
+$$\hat{\theta}=\frac{n_{11}\cdot n_{22}}{n_{21}\cdot n_{12}}=\frac{309\cdot281}{319\cdot191}\approx 1.425$$
+
+
+To create a confidence interval for $\hat{\theta}$ we wish to use the monotone transformation of $g(\hat{\theta})=\log(\hat{\theta})$ since this transformaton coverges more rapidly towards the normal distribution. 
+In order to produce the confidence interval we need to find the standard deviation. Since the sampling is multinomial and the use of a multivariate version of the delta method we get that: 
+
+$$Var[log(\hat{\theta})] \approx \frac{1}{n\cdot\pi_{11}}+\frac{1}{n\cdot\pi_{12}} +\frac{1}{n\cdot\pi_{21}} + \frac{1}{n\cdot\pi_{22}}.$$
+
+By replacing $\pi_{ij}$ with $\hat{\pi}_{ij}$ we get: 
+
+$$SE = \sqrt{\hat{Var}[log(\hat{\theta})]}= \sqrt{\frac{1}{n_{11}}+\frac{1}{n_{12}}+\frac{1}{n_{21}}+\frac{1}{n_{22}}}=0.1231477.$$ 
+
+Ultimately, using $\alpha = 0.05$, an approximated delta-based $95\%$ confidence interval for $log(\theta)$ is 
+
+$$(log(1.425)-1.96\cdot SE, log(1.425)+1.96\cdot SE \approx (0.1116,0.5968),$$ 
+
+where $\hat{\theta}=1.425$ and $SE = 0.1231477$. This gives the confidence interval for $\theta$ as $(e^{0.1116},e^{0.5968})\approx (1.119482,1.814113)$. This would be interpreted as that 
+the odds ratio, with $95 \%$ certainty, is within the interval $(1.119482,1.814113)$. Since all the values inside the confidence interval is greater than $1$, it seems likely that the true value of $\theta$ is greater than $1$ saying that more weight is put on the numerator. Seing as the numerator is the odds for women being in favor of abortion, the estimated odds ratio tells us that women are 1.4 times as likely to be in favor of abortion as men are according to our data set. Since $1$ is not included in the confidence interval, independence between opinion and gender does not seem likely.
+
+
+### Part 4
+The risk ratio is the risk of an event occuring in a specified group divided by an event occuring in another group. We choose to calculate the relative risk between the probability of getting the answer "in favor" knowing the person taking the survey is female divided by the probability of getting the same answer when the person is male. We therefore get the risk ratio:
+
+$$ r = \frac{P(Y=1|X=1)}{P(Y=1|X=2)}=\frac{\pi_{11}/\pi_{1+}}{\pi_{21}/ \pi_{2+}}$$
+
+We once again estimate $\pi_{ij}$ with $\hat{\pi}_{ij}=\frac{n_{ij}}{n}$ which gives us the estimated riskratio as:
+
+$$\hat{r}=\frac{n_{11}/n_{1+}}{n_{21}/n_{2+}}=\frac{309/500}{319/600}\approx1.166$$ 
+
+This implies that as an estimation, the conditional probability of getting an answer "in favor" when it's a woman is 1.166 times larger than when it's a man. In mathematical terms we have that $\pi_{1|1} = 1.166\cdot \pi_{1|2} $
+
+To compute the relative risk confidence interval we use a similar method as when we computed the confidence interval for the odds ratio, using a logarithmic transformation. However, in this case, using that we have multinomial sampling and a multivariate version of the delta method, this asserts that, 
+
+$$Var[log(\hat{r})] \approx \frac{\pi_1(1-\pi_1)/n_1}{\pi_1^2}+\frac{\pi_2(1-\pi_2)/n_2}{\pi_2^2}= \frac{1-\pi_1}{\pi_1n_1}+\frac{1-\pi_2}{\pi_2n_2}.$$ 
+
+And so, by replacing $\pi_i$ by $\hat{\pi_i}$, we get a standard error by,
+
+$$SE=\sqrt{\hat{Var[log(\hat{r})]}}=\sqrt{\frac{1-n_{11}/n_1}{n_{11}}+\frac{1-n_{21}/n_2}{n_{21}}}= 0.04933588.$$ 
+
+An approximate delta 95% confidence interval for $log(r)$ is 
+
+$$(log(\hat{r})-1.96\cdot SE, (log(\hat{r})+1.96\cdot SE ) \approx ( 0.0537734, 0.2471701),$$ 
+
+where $\hat{r}=1.166$ and $SE =  0.04933588$. Giving the confidence interval for $r$ to be $CI(r)=(e^{0.0537734},e^{0.2471701})\approx (1.05,1.28)$. We can say that the probobility of a woman being in favor of abortion is at least $1.05$ times as large as the probobility of a man being in favor of abortion but at most $1.28$ times as large on a $95 \%$ confidence level.
+
+
+
+### Part 5 
+
+Now we use code built into R to compare with our manually calculated results. We have from the odds- and risk ratio tables extracted the ratio matching the ones we picked. The comparison between our and R´s estimated odds- and riskratio and confidence intervall can be seen in the table below.
+```{r}
+pander(odds_risk_tab)
+```
+The comparison between our and R´s $\chi^2$ and $G^2$ statistics can be seen in the following table. We see that our statistics and R´s are indentical. Futhermore, our estimated odds- and risk ratios, and their associated confidence intervals, and R´s are nearly the same. 
+
+```{r}
+pander(X_G_stat)
+```
+
+If the reader wants to double check the result from the R code, the code is attached at the end.
+
+
+## Exercise 1.2
+
+### Part 1
+In the second exercise we were given data collected from University of California, Berkeley from year 1975. The data was read into R and are shown below.
+```{r}
+pander(UOC)
+```
+The estimated probability of being admitted or not for both genders are shown in the table below.
+```{r}
+pander(prob_UOC)
+```
+We once again have two categorial variables $X$ and $Y$ each with two categories $i,j=1,2$ denoting for $X$ if the person is female or male and for $Y$ if the person was admitted or not.
+
+To calculate Pearsson´s $X^2$ statistic and the likelihood ratio statistic we use R´s built in function. By this method we get that $X^2 = 92,0528$ and $G^2 = 93,44941$. This tests the null hypothesis that $X$ and $Y$ are independent, namely the nullhypothesis formulated as $H_0 : \pi_{ij} = \pi_{i+} \cdot \pi_{+j}$ for $i,j = 1,2$. Since both test statistics results in p-values close to $0$ we get an implication towards rejecting the nullhypothesis with statistical certainty in favor of the alternativ hypothesis, that gender did play a role in being admitted to Berkley University in 1975 or not.
+
+We have calculated the odds ratio between the odds of being admitted if you are woman, $P(Y=1|X=1)/P(Y=2|X=1)$ and being admitted if you are a man $P(Y=1|X=2)/P(Y=2|X=2)$. The estimated odds ratio was calculated in the same way as in exercise 1.1. This gave us $\hat{\theta}=0.5431594$, implying that the odds of being admitted when you are a woman is $0.54$ times the odds of being admitted when you are a man. The $95 \%$ confidence interval for $\theta$ is $(0.479, 0.615)$, also calculated by the same method as in excercise 1.1. We can see that once again, $1$ is not included in the confidence intervall, confirming that we with $95 \%$ certainty can say that $X$ and $Y$ are not independent.
+
+The relative risk was once again calculated, this time for the event that you are admitted knowing that the applicant is female, divided by the probability of being admitted knowing that the applicant is male, meaning 
+
+$$ r = \frac{P(Y=1|X=1)}{P(Y=1|X=2)}=\frac{\pi_{11}/\pi_{1+}}{\pi_{21}/ \pi_{2+}}.$$ 
+
+In the same way as in exercise 1.1, we have that
+
+
+$$\hat{r}=\frac{n_{11}/n_{1+}}{n_{21}/n_{2+}}=\frac{557/1835}{1198/2691}\approx 0.6818.$$ 
+
+This implies that as an estimation, the conditional probability of being admitted when it's a female applicant is approximately $0.6818$ times less than the probability of being admitted when it's a male applicant. In mathematical terms we get $\pi_{1|1} = 0.6818\cdot \pi_{1|2}$.
+A confidence interval for the relative risk is calculated in the same method as previously, and we get a $95 \%$ confidence interval to be $(0.6286966, 0.7394536)$ telling us that with statistical certainty, the probobility for a woman being admitted is at most $0.74$ of the probobility for a man being admitted.
+
+If the reader wants to verify the result, the code and outputs can be found at the end of the report.
+
+### Part 2
+If we divide all observations with a constant C we get the change in statistics as:
+
+$$(G')^2=2\sum_{ij}\frac{1}{C}n_{ij}\cdot log\frac{n_{ij}}{\hat{\mu}_{ij}}=\frac{1}{C}G^2$$
+ 
+For Pearson´s $X^2$ statistic we get:
+
+$$(X')^2=\sum\frac{[(\frac{1}{C})(n_{ij}-\hat{\mu}_{ij})]^2}{\frac{1}{C}\hat{\mu}_{ij}}=\frac{1}{C}X^2$$
+
+So if we divide all observations with 10, the test statistics becomes one tenth of the original value. If we divide the observations by 100, the statistics becomes one hundreth of the original value.
+
+The estimated odds and risk ratio stays unaffected by this division because we have observations from two cells both in the numerator and denominator so we get a konstant $1/C^2$ in both the numerator and denominator which cancel out eachother.
+
+Meanwhile, the confidence intervals for the estimated odds and risk ratio gets wider as the number of observations gets lower. This is due to more data equaling faster convergence which in turn results to better approximations and smaller intervals. We can see that when taking one tenth of the observations, we have a confidence interval for the estimated odds ratio of $(0.3673349, 0.8117932)$ meaning we still don't have the value $1$ included in the interval. The same goes for the estimated risk ratio with a confidence interval of $(0.5282426, 0.8811484)$ not including $1$. However, when we take one hundreth of the observations we instead get the confidence interval for the estimated odds ratio to be $(0.160175,  2.010974)$ and for the estimated riskratio to be $(0.3241508, 1.557447)$ both including the value $1$ making it hard to say anything about the odds of women and men getting into the university. We also get a p-value up towards $0.40$ meaning we can no longer reject our null-hypothesis on any reasonable level. 
+
+In conclusion we can say that it's important to have a large enough data set to make our analysis. When making an analysis of this character we rely on approximations. If the data set is too small, the approximations are not so good. We also rely on the assumption that our test statistics are chi-squared distributed. This only holds for when we have many observations.
+
+Once again, if the reader wants to check the results, the code with outputs can be found at the end of the project.
+
+### Part 3
+By testing different number combinations we managed to creat an estimated odds ratio lying in the interval $(0.99,1.01)$ We there after multiplied these observations by an increasing constant $C$to make the confidence interval smaller. In the end we got the estimated odds ratio to be $0.9962$. The chosen cell counts can be seen below:
+```{r}
+pander(odds_table)
+```
+One could presume that seing as the estimated value of the odds ratio is so close to $1$, that the confidence-interval for the odds ratio would include the value 1. But due to the large amount of observations, our standard error becomes extremely small. Therefore the confidence interval becomes small, $(0.9928,0.9996)$ (was calcululated the same way as in exercise 1.1) and does not include the value $1$.  Hence, we can say that the odds ratio statistically significantly differ from 1, even though it is very close to it. But if we only would have taken one hundreth of these observations, we would have ended up with a confidence interval that includes the value $1$. In this case we would not reject the null-hypothesis and would assume that, with statistical certainty, that the two different categorial variables were independent. But since when multiplying these observations with 100, this would no longer be the case, our assumption of independence would have been faulty. This showcase the importance of having a large enough data set.
+
+This shows us that we need to be careful when stating statistical significance. On one hand, we could say that disregarding a difference of $0.0038$, stating that our initial estimated odds ratio with this made up data set is equal to $1$ seing as in this scenario, is wrong. In this scenario that would have made sense. On the other hand, one could say that accepting such a minor different won't affect our analysis too much. This might be the case in most scenarios. We need to keep in mind that this is a made up data set with a total number of observations being several millions. This is rarely the case in real life.   
+
+
+## Exercise 1.3
+
+### Part 1
+We now work with data from a hospital in Stockholm. The study is a retrospective case-control study. We have data of the first 100 newborn babies with a weight being too low since the study began. We also have 300 babies born with normal weight as the control group and at the same time the amount of alcohol the mother had consumed during pregnancy. The data is shown below in a $2x2$ contingency table:
+
+```{r}
+yehaw <- rbind(c(10,20,30), c(90,280,370), c(100,300,400))
+colnames(yehaw) <- c("Low","Normal","Sum")
+rownames(yehaw) <- c("High/Moderate","Low/None", "Sum")
+pander(yehaw)
+```
+In this scenario we have a fixed total number of observations for each column. This means that we have independent binomial distributions for each column. Due to this not being the case for rows, we use bayes formula to calculate the probability of giving birth to a child with low birth weight knowing that the mother consumed high or moderate amount of alcohol during pregnancy. We use the notation $X$ for alcohol consumption, $Y$ for birth weight, both with two categories each denoted as $i,j = 1,2$ meaning for $X$ a high or moderate alcohol consumption for $i=1$ and for low or no alcohol consumption $i=2$ and for $Y$, $j=1$ means a low birth weight while $j=2$ denotes a normal birth weight. This asserts, with bayes formula, the probability of birth weight being low knowing that the mother consumed high or moderate amount of alcohol during pregnancy as:
+
+$$P(Y=1 | X=1)=\frac{P(X=1|Y=1)P(Y=1)}{P(X=1|Y=1)P(Y=1)+P(x=1|Y=2)P(2)}$$
+
+Seing as we have independent binomial distributions for columns and the estimated probability for a newborn being born with low weight being given in the question we can easily estimate each probability on the right side. We have that $P(Y=1)=0.07$ which means that $P(Y=2) = 1-P(Y=1) = 0.93$. Now we can approximate the conditional probobilities with 
+
+$$P(X=1|Y=1)=\pi_{1|1} = \pi_{11}/\pi_{+1} \approx n_{11}/n_{+1}=0.1$$
+and:
+
+$$P(X=1|Y=2)\approx 20/300$$
+
+Now we just plug in all the results which gives us:
+$$P(Y=1|X=1)\approx 0.101$$
+
+
+### Part 2
+In this case we instead have independent binomial distribution for rows because of the amount of observations for each row being fixed. We know want to estimate the same probability as above, i.e $P(Y=1 | X=1 )$. This time we simply estimate the probability without using bayes formula. We get $$P(Y=1|X=1)=\pi_{Y=1|X=1} \approx \hat{\pi}_{Y=1|X=1}=\frac{n_{1|1}}{n_{1+}}=\frac{10}{30}=\frac{1}{3}$$
+The probability in this case is therefore estimated to $33.33\%$.
+
+
+```{r}
+
+
+#CODE FOR EXCERCISE 2
+
+
+UOC <- data.frame(c(557,1198, 1755),c(1278,1493,2771), c(1835,2691,4526))
+colnames(UOC) <- c("Admitted", "Not admitted","Total applicants")
+rownames(UOC) <- c("Women", "Men", "Total")
+
+
+```
+
+```{r}
+
+p_men <- 1493/2691
+p_women <- 1278/1835
+prob_UOC <- data.frame(c(1-p_women,1-p_men),c(p_women, p_men))
+colnames(prob_UOC) <- c("P(admission)", "P(no admission)")
+rownames(prob_UOC) <- c("Women", "Men")
+
+
+```
+
+```{r}
+n2 <- 4526
+ML2_table <- data.frame(c(1835*1755     /n2, 2691*1755  /n2), c(1835*2771/n2, 2691*2771/n2))
+colnames(ML2_table) <- c("ML_1j", "ML_2j")
+
+
+G_stat2 <- 2 *(UOC[1,1]*log(UOC[1,1]/ML2_table[1,1])+UOC[2,1]*log(UOC[2,1]/ML2_table[2,1])+UOC[1,2]*log(UOC[1,2]/ML2_table[1,2])+UOC[2,2]*log(UOC[2,2]/ML2_table[2,2]))
+
+Chi_stat2 <-  (UOC[1,1]-ML2_table[1,1])^2/ML2_table[1,1]+(UOC[2,1]-ML2_table[2,1])^2/ML2_table[2,1]+(UOC[1,2]-ML2_table[1,2])^2/ML2_table[1,2]+(UOC[2,2]-ML2_table[2,2])^2/ML2_table[2,2]
+
+table_stats2 <- data.frame(cbind(G_stat2,Chi_stat2))
+colnames(table_stats2) = c("G-statistic", "Chi-statistik")
+
+
+```
+
+```{r}
+
+odds.ratio2 <- (UOC[1,1] *UOC[2,2])/(UOC[1,2]*UOC[2,1])
+
+
+
+```
+
+
+```{r}
+
+
+
+
+odds.ratio2 <- (UOC[1,1]/n2 *UOC[2,2]/n2)/(UOC[1,2]/n2*UOC[2,1]/n2)
+
+
+
+
+#oddsratio(odds_table, rev="neither")$measure[2,]
+
+#odds_table
+
+#odds.ratio.table <- (odds_table[1,1] *odds_table[2,2])/(odds_table[1,2]*odds_table[2,1])
+
+#odds.ratio.table
+
+#SE_odds <- sqrt(1/odds_table[1,1]+1/odds_table[1,2]+1/odds_table[2,1]+1/odds_table[2,2])
+#SE_odds*1.96
+
+#(odds.ratio.table + 1.96* SE_odds)
+#(odds.ratio.table -1.96*SE_odds)
+```
+
+
+
+### Code to verify results in 1.1: Part 5
+```{r, echo=T}
+#Generate a frequency table and calculate row percentage
+tab1<- as.table(rbind(c(309, 191), c(319, 281)))
+dimnames(tab1) <- list(gender = c("women", "men"),opinion = c("favor","against"))
+addmargins(tab1)
+addmargins(prop.table(tab1,1),2) 
+#Calculate X2, G2 and p-values
+chisq.test(tab1,correct=FALSE)
+library(MASS) # the MASS package must be installed (Rstudio menu bar: Tools - Install packages...) #
+loglm(~gender+opinion,tab1)
+#Calculate risk/odds ratio and confidence interval
+library(epitools) # the epitools package must be installed 
+oddsratio(tab1,rev="neither")
+riskratio(tab1,rev="both")
+```
+
+
+### Code to verify results in 1.2: Part 1
+
+```{r, echo=T}
+tab2<- as.table(cbind(c(557, 1198), c(1278, 1493)))
+dimnames(tab2) <- list(Gender = c("women", "men"), Admissions = c("Admitted","Not admitted"))
+addmargins(tab2)
+addmargins(prop.table(tab2,1),2) # To get column percentages: 
+addmargins(prop.table(tab2,2),1) #
+
+
+chisq.test(tab2,correct=FALSE)
+
+loglm(~Gender+Admissions,tab2)
+
+tab3<- as.table(cbind(c(55.7, 119.8), c(127.8, 149.3)))
+dimnames(tab3) <- list(Gender = c("women", "men"), Admissions = c("Admitted","Not admitted"))
+addmargins(tab3)
+addmargins(prop.table(tab3,1),2) # To get column percentages: 
+addmargins(prop.table(tab3,2),1) #
+
+
+chisq.test(tab3,correct=FALSE)
+
+loglm(~Gender+Admissions,tab3)
+
+odds.ratio2 <- (UOC[1,1]/n2 *UOC[2,2]/n2)/(UOC[1,2]/n2*UOC[2,1]/n2)
+
+odds.ratio2
+oddsratio(round(tab3),rev="neither")$measure[2,]
+
+```
+
+### Code to verify results in 1.2: Part 2
+```{r, echo=T}
+tab3<- as.table(cbind(c(55.7, 119.8), c(127.8, 149.3)))
+
+oddsratio(round(tab3),rev="neither")
+riskratio(round(tab3),rev="both")
+
+tab4<- as.table(cbind(c(5.57, 11.98), c(12.78, 14.93)))
+
+oddsratio(round(tab4),rev="neither")
+riskratio(round(tab4),rev="both")
+```

@@ -1,0 +1,329 @@
+---
+title: "EX3"
+author: "Simon Melamed & Anton Holm"
+date: "11/28/2019"
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(MASS)
+library(epitools)
+library(pander)
+```
+
+# Exercise 1
+
+### Summary
+
+Data was gathered from an American survey, in which a random sample of 980 people were asked which political party they preferred. The result of the survey was categorized by whether the person was white or non-white, and the answers The Democratic Party, The Republican Party or Other party. Below is the result from the survey.
+
+
+```{r}
+tab1<- as.table(rbind(c(341, 105, 405), c(103, 15, 11)))
+dimnames(tab1) <- list(Ethnicity = c("White","Non-white"), Party_Preference= c("Democrat", "Other", "Republican"))
+addmargins(tab1)
+addmargins(prop.table(tab1,1),2)
+```
+
+### Task 1.
+
+Since the total amount of observations is held fixed with possible outcomes in $6$ different categories, we can view the counts of each cell as being sampled from a multinomial distribution, $$N= (N_{11},N_{12},N_{13},N_{21},N_{22},N_{23})  ∼ Mult(\pi_{11},\pi_{12},\pi_{13},\pi_{21},\pi_{22},\pi_{23}),$$ and $p=5$ degrees of freedom since the sixth parameter can be written as a linear combination of the other five parameters. Here $\pi_{ij}$, is the probability parameter for the samples $N_{ij}$, where $i \in \{1 = \text{White}, 2=\text{Non-White} \}$ and $j \in \{1 = \text{Democrat}, 2=\text{Other},  3=\text{Republican}  \}$. So, for example, $\pi_{11}$ is the  probability parameter that the person taking the survey is white, and pro democrat.
+
+### Task 2.
+
+For this task we create a hypothesis test of independency between party preference and ethnicity. This asserts that we have the null hypothesis $$ H_0: \pi_{ij}=\pi_{i+}\cdot \pi_{+j},$$ and a alternative hypothesis
+$$ H_1: \pi_{ij}\neq \pi_{i+}\cdot \pi_{+j},$$ for at least one combination of $i, j$. This model has $q=3$ degrees of freedom.
+
+We compute the Pearsons test statistic for this test by this following formula,
+$$X^2 = \sum_{i,j}\frac{(n_{ij}-\hat{\mu}_{ij})^2}{\hat{\mu}_{ij}} \overset{H_0}{\sim} \chi^2_{p-q}(1),$$  where $\hat{\mu}_{ij}$ is the expected number of counts in cell ${ij}$, which is given under the null hypothesis by, $$\hat{\mu}_{ij}=n\cdot\hat{\pi}_{ij}=n \cdot\hat{\pi}_{i+}\cdot\hat{\pi}_{+j}=\frac{n_{i+}\cdot n_{+j}}{n}.$$ Since the basic model has 5 degrees of freedom and the model under the null-hypothesis only has 3 degrees of freedom, the chi-square test statistica has $5-3=2$ degrees of freedom.  The result of the computation is shown below, where the test statistic equal $79.4$ and p-value is less than $2.2 \cdot 10^{-16}$.
+
+```{r}
+chisq.test(tab1,correct=FALSE)
+```
+
+From this result, we conclude that the test statistic is larger than the 95% quantile of a $\chi^2$ distribution with 2 degrees of freedom (5.99) and the p-value is below the $\alpha = 0.05$ significance level and actually below an even lower significance level. From this, we reject the null-hypothesis in favor of the alternative hypothesis and state with statistical confidence that $\pi_{ij}\neq \pi_{i+}\cdot \pi_{+j}$ for some $i, j$ and so ethnicity and party preference is not independent according to the Pearson test.
+
+The likelihood ratio test statistic is computed using this formula, $$G^2=2 \sum_{ij}n_{ij}\log\frac{n_{ij}}{\hat{\mu}_{ij}} \overset{H_0}{\sim} \chi^2_{p-q},$$ with the same notations as before. In the following code we see that we get the test statistic $G^2=90.3$ which is larger than the 5% quantile of a $\chi^2$ distribution with 2 degrees of freedom (5.99). We also have a p-value below the significance level $0.05$ and even lower than so. The conclusion from this test if therefore the same as for the Pearson's test, reject the null hypothesis in favor of the alternative.
+
+```{r}
+loglm(~Ethnicity+Party_Preference,tab1)
+```
+
+### Task 3.
+
+To get a better understanding of the relationship between the different categories in the data table, we now consider two subtables instead.
+
+In the first subtable, the counts Democrats and Republicans are combined to one group, called Democrat or Republican, and we get the following table. We once again test the same hypothesis as before, independence between rows and columns.
+
+```{r}
+tab2<- as.table(rbind(c(341+405, 105), c(103+11, 15)))
+dimnames(tab2) <- list(Ethnicity = c("White","Non-white"), Party_Preference= c("Democrat or republican", "Other"))
+tab2
+```
+With the following test statistics, note that these statistics only have one degree of freedom, unlike the table with three columns.
+```{r}
+loglm(~Ethnicity+Party_Preference,tab2)
+```
+When we calulate the Pearson's and likelihood ratio test statistics for this subtable we cannot reject the null hypothesis independence between the columns and rows, since they aren't larger than the corresponding quantiles and the p-values are not significant. Therefore, we cannot claim that the groups Democrat/Reublican and Other, are not independent of ethnicity.
+
+For the second subtable, the group "Others" is excluded, and hence we have the table:
+
+```{r}
+tab3<- as.table(rbind(c(341, 405), c(103, 11)))
+dimnames(tab3) <- list(Ethnicity = c("White","Non-white"), Party_Preference= c("Democrat", "Republican"))
+tab3
+
+```
+The test statistics for this subtable is shown below,
+
+```{r}
+loglm(~Ethnicity+Party_Preference,tab3)
+```
+From this, we arrive at a similar conclusion as in task 2. Since the both of the statistics are larger than the $95\%$ Chi-squared quantile, and have p-values way below $0.05$, we can reject the null hypothesis that ethnicity and party preference are independent, when you only have the groups republican or democrat.
+
+From this task we've seen by partitioning the table in task 1 into subtables how the difference primarily lies between the groups "democrats" and "republican", and ethnicity, rather than "democrat/republican" and "other", and ethnicity. 
+
+### Task 4
+
+For this task, we summarized the test statistics for the first and second subtable that we considered in task 3. We get, 
+
+$$X_1^2+X_2^2 = 0.05262793+78.90825 = 78.96088$$
+
+$$G_1^2+G_2^2=0.05329084+90.27776 =  90.33105.$$
+
+From this we note that $G_1^2+G_2^2=G^2$ where $G^2$ is the likelihood test statistic we calculated in task 2 when considered the $2 x 3$ table. Whereas $X_1^2+X_2^2=78.96088$ seem to differ more from the Pearson statistic in task 2, which was $79.43098$ in comparison.
+
+This result is consistent with what is said in "Categorical Data Analysis, Agresti, 2nd Edition, p.82", which explains how to partition $2xJ$ tables in order for the statistics to sum up to the statistic of the original table. In this case, $G^2$ for testing independence between ethnicity and party preference, equal a statistic that compares Democratic column and Republican column (subtable 2) plus a statistic that combines these columns and compare them to the column Others (subtable 1). We have not confirmed that this theory seem to be true for the likelihood ratio test statistics, at least not as accurately as for the Pearson test statistics.
+
+### Task 5
+
+For this task we have calculated the odds ratio between the odds of voting for the democrats if you are white, devided by the odds of voting for the democrats if you are non-white. Using the built-in function in R for the oddsratio, (can be done manually in the same way as in previous assignment) we get the result, $\hat{\theta}= 0.09127163$. Meaning the odds of voting democrats when you are white is merely $9\%$ of the odds of voting democrats if you are non-white. The $95\%$ wald confidence interval along with the estimate is calculated as in previous assignments and the result is shown below,
+
+```{r}
+oddsratio(tab3,rev="neither")$measure[2,]
+```
+
+Implying that the odds of voting democrats when you are white is at least $4\%$ of the odds of voting democrats if you are non-white, and at most $16\%$ on significance level $\alpha = 0.05$.
+
+### Task 6
+
+Now we want to research whether sex has some confounding effect on our previous results. We do this by considering the given table,
+
+```{r}
+
+tab4 <- as.table(rbind(c(279, 73, 225), c(165, 47, 191)))
+dimnames(tab4) <- list(Sex = c("Woman","Man"), Party_Preference= c("Democrat", "Other", "Republican"))
+tab4
+
+```
+
+To answer whether there are differences between men and women when it comes to party preference, we consider the same test statistics as before, but for this table instead. We get both the Likelihood Ratio test statistic and Pearson test statistic to be approximately $7$, which is larger than the $95\%$ Chi squared quantile with two degrees of freedom, along with p-values that are below the significance level of $0.05$. Therefore, we can reject the null hypothesis that sex is independent of party preference.
+
+```{r}
+loglm(~Sex+Party_Preference,tab4)
+
+```
+
+This conclusion troubles our previous founding, that party preference and ethnicity weren't independent. It could be that the sex variable has an confounding effect on the result, at least for this sample. This might have the meaning that it actually was the sex variable that caused the previous result claiming that ethnicity isn't independent of party preference. 
+
+### Task 7
+
+The additional information needed in order to safely claim that ethnicity and party preference aren't independent, is the sex of the whites and nonwhites in the first table. We would want a $2$x$3$x$2$ table instead, having the categorical variables for Rave, Party preference and gender. Then a new test statistic based on this more informative table with categories, "white men", "white women", "nonwhite men" and "nonwhite women", be produced and interpreted. With this information, we could analyse marginal subtables and for example calculate conditional odd-ratios to take the possible confounder into consideration when making our analysis.
+
+# Exercise 2
+
+### Task 1
+```{r}
+
+Age<-c("<30","<30", "30+","30+")
+Survival<-c("no","yes","no","yes")
+n<-c(89,4826,60,1876)
+data32 <- data.frame(Age,Survival,n)
+
+model32a<-glm(Survival~Age, weights =n, family = binomial(link=logit), data=data32)
+model32b<-glm(Age~Survival, weights =n, family = binomial(link=logit), data=data32)
+model32c<-glm(n~Age*Survival, family=poisson(link=log), data=data32)
+
+
+
+```
+
+Data has been collected from a birth clinic containing the mothers age and whether the child survived the birth or not. Data were collected during a specific timeframe, hence neither the total data sample or any total column or row observations were held fixed. The collected data is shown below:
+
+```{r}
+pander(data32)
+```
+
+We begin by constructing two logistic regression models. The first one for the probability that a child survive as a function of the mother's age. The second one for the probability that the age of the mother is over 30 years old as a function of whether the child survived or not. 
+
+For the first logistic regression model, having whether the child survived or not as the binary responsevariable $Y$ taking the value $Y=1$ if the child survived and $Y=0$ if it did not. The predictor variable $X$ takes the value $X=1$ if the mother is of age larger than 30 and $X=0$ if she is younger than 30 years old. A summary of the model is shown below:
+
+```{r}
+summary(model32a)
+```
+
+We here have the logistic regression model
+
+$$
+logit(p_x)=\beta_0 + \beta_1 x
+$$
+
+with
+
+$$
+p_x = P(Y=1 | X=x) = \frac{exp(\beta_0 + \beta_1 x)}{1+exp(\beta_0 + \beta_1 x)}
+$$
+
+We can observe from the R output of the model that both the intercept $\beta_0$ and the effect parameter $\beta_1$ are significant. The estimate of $\beta_0$ is shown to be $3.99$ which we get from putting $x=0$ in the model. This can also be seen as the logarithm of the odds of $p_0$.
+
+$$
+\beta_0 = logit(p_0) = \log\frac{p_0}{1-p_0}
+$$
+An estimate of the intercept is retrieved by:
+
+$$
+\hat{\beta}_0 = \log \frac{\hat{p}_0}{1-\hat{p}_0} = \log \frac{4826/4915}{1-4826/4915}= 3.993137
+$$
+
+The effect parameter $\beta_1$ is on the other hand can be expressed from the following equation:
+
+$$
+log(\theta) = \log\frac{(p_{1})/(1-p_{1})}{(p_0)/(1-p_0)} = logit(p_{1})-[~logit(p_0)~] = \beta_1
+$$
+where $\theta$ is the odds ratio between the odds of having the child surviving birth if the mother is 30 years old or older and the odds of the child surviving if the mother is younger than 30 years old. Hence, the effect parameter is the logarithm of said odds ratio. We therefor get an estimation of $\beta_1$ as:
+
+$$
+\hat{\beta}_1 = log(\hat{\theta}) = log(\frac{n_{11}\cdot n_{22}}{n_{12}\cdot n_{21}})= log(\frac{89\cdot 1876}{60\cdot4826})=log(0.5766128)= -0.5505843
+$$
+
+which is the same as the estimation in the R output for the model.
+
+We now fit a model where $X$ is the responsevariable and $Y$ the predictor. We still have the same binary interpretation. We then get the logistic regression model:
+
+$$
+logit(p_{y}) = \gamma_0 + \gamma_1 y
+$$
+
+with:
+
+$$
+p_y = P(X=1 | Y=y) = \frac{exp(\gamma:0 + \gamma_1 y)}{1+exp(\gamma_0 + \gamma_0 y)}
+$$
+
+The summary of this model is shown below:
+
+```{r}
+summary(model32b)
+```
+
+
+We can first of all see that the effect parameter remains the same.  This due to the symmetry of the odds ratio. Here $\gamma_1$ is the log odds ratio between the odds for $y=1$ and $y=0$. The estimated odds-ratio for a $2$x$2$ table doesn't regard the conditioning of $X$ and $Y$ but only takes into consideration the cell observations which is why the estimation of the effect parameter in both logistic regression models are the same. The estimation of the intercept $\gamma_0$ can be retrieved in the same manner as for the previous model. We get:
+
+$$
+\hat{\gamma}_0 = \log \frac{\hat{p}_{y=0}}{1-\hat{p}_{y=0}} = \log \frac{60/149}{1-60/149}= -0.3943
+$$
+
+Once again both the paramaters are significant for this model which can be observed from the R output of this model. 
+
+Lastly we fit the log-linear model for this data as:
+
+$$
+log(\mu_{ij})=\lambda + \lambda_i^X + \lambda_j^Y + \lambda_{ij}^{XY}
+$$
+
+where $\lambda$ is the baseline for the model, $\lambda_i^X$ is the marginal effect of $X$ at level $i$ with $i=1,2$ making up $I=2$ paramaters, $\lambda_j^Y$ the marginal effect of $Y$ at level $j$ with $j=1,2$ making up $J=2$ paramaters and lastly $\lambda_{ij}^{XY}$ being the interaction effect between $X$ and $Y$ at level $i,j$ making up $I*J=4$ paramaters. Since we in a model like this should have $I \cdot J = 4$ paramaters but instead have $I+J+I\cdot J = 8$ parameters we need to impose $I+J+I\cdot J - I \cdot J = 4$ restrictions. We impose the following restrictions for this saturated model:
+
+$$
+\lambda_2^X = 0
+$$
+
+$$
+\lambda_2^Y=0
+$$
+
+$$
+\lambda_{12}^{XY} = \lambda_{21}^{XY}=0
+$$
+
+The summary output of the model from R can be seen below:
+
+```{r}
+summary(model32c)
+```
+
+We know that to estimate $\mu_{ij}$ we simply use $n_{ij}$. 
+
+Now, seing as we have imposed the restrictions above, we get in our model that:
+
+$$
+\log( \mu_{22}) = \lambda \Rightarrow \hat{\lambda}=\log(n_{22})
+$$
+
+So, $\hat{\lambda} = \log(89)=4.488636$ just as we can see in R's output.
+
+
+Now, keep in mind, in this case, $i,j$ are dummyvariables where $i,j=1$ means $X,Y=1$ but $i,j=2$ means $X,Y=0$, hence for example $n_{1+}$ is the total cell observations for $X=1$ which is the total observations in the second row, mothers aged 30 or older.
+
+If we take a closer look at the output of all three models we find that we have the excact same values for different parameters for example the marginal effect of $Y$ when $j=1$ i.e, $\lambda_1^Y$ has the same estimated value as the intercept in our first logistic model. At the same time, $\lambda_1^X$ has the same stimated value as the intercept in our second logistic regression model. And the interaction parameter $\lambda_{11}^{XY}$ has the same value as both the effect parameters of the two logistic regression models. However, we can not find any thing similar to our baseline parameter in the log-linear model in the other two models. Let's take a closer look at why this is the case.
+
+We begin by taking a closer look at $\beta_0$ from our first logistic regression model. We have, using the definition of a conditonal probobility distribution $P(Y=y|X=x)=P(Y=y,X=x)/P(X=x)$:
+
+$$
+\beta_0 = log \frac{p_0}{1-p_0}=log \frac{P(Y=1|X=0)}{P(Y=0|X=0)} = log \frac{P(Y=1, X=0)}{P(Y=0,X=0)}=log\frac{\pi_{21}}{\pi_{22}}
+$$
+where in the third step, the denominators from the above definition cancel eachother out. Now, we know that $\pi_{ij}=\frac{\mu_{ij}}{\mu_{++}}$ and from how we defined the log-linear model in the beginning we get:
+
+$$
+log\frac{\pi_{21}}{\pi_{22}}= log \frac{\mu_{21}}{\mu_{22}} = \lambda + \lambda_2^X+\lambda_1^Y + \lambda_{21}^{XY}-(\lambda + \lambda_2^X+\lambda_2^Y+\lambda_{22}^{XY})= \lambda_1^Y
+$$
+
+where the last equality follows from the restrictions we imposed. Hence, we get that $\beta_0=\lambda_1^y$ as we could see in the R output. With the exact same method we also get that $\gamma_0=\lambda_1^X$. Now let's consider our effect parameters, $\beta_1$ and $\beta_2$ which we saw in the previous models where the same due to the symmetry of the oddsratio in a $2$x$2$ table. Let's consider the effect parameter from our first model, $\beta_1$. This yields us:
+
+$$
+\beta_1 = \log(\theta) = \log \frac{p_1/(1-p_1)}{p_0/(1-p_0)} = \log\frac{P(Y=1|X=1)/P(Y=0|X=1)}{P(Y=1|X=0)/P(Y=0|X=0)} =log(\frac{\pi_{11} \cdot \pi_{22}}{\pi_{12}\cdot \pi_{21}})
+$$
+again using the definition of conditional probobility distribution in the last step. By the same properties stated for $\pi_{ij}$ as before, we continue:
+
+$$
+log(\frac{\pi_{11} \cdot \pi_{22}}{\pi_{12}\cdot \pi_{21}}) = log(\frac{\mu_{11} \cdot \mu_{22}}{\mu_{12}\cdot \mu_{21}}) = \lambda_{11}^{XY}+\lambda_{22}^{XY} -\lambda_{12}^{XY} - \lambda_{21}^{XY}=\lambda_{11}^{XY}
+$$
+
+due to the restriction we imposed previously. To conclude, we can see that the estimation of the marginal effect parameters in the log-linear model corresponds to the estimated intercepts in respective logistic model which corresponds to the estimated odds of $p_0$. We can also see that the estimated interaction parameter corresponds to the estimated effect parameters in the logistic regression models which in turn corresponds to the estimated odds ratio between $p_1$ and $p_0$.
+
+### Task 2
+
+In the output from R for the log-linear model we can see that the interaction parameter has a p-value of 0.00114. This is the p-value for the hypothesis test $H_0$: interaction parameter $=0$. Since we got a significant p-value that would suggest rejecting the null-hypothesis. If the interaction parameter would be zero, we could use a submodel without the interaction parameter for all further analysis. The parameter being zero would also suggest independence between rows and columns in our data considering the connection with the odds ratio that we mentioned earlier. 
+
+We now want to do a statistical test of the null hypothesis $H_0:\lambda_{ij}^{XY}=0$ against the alternative hypothesis $H_a: \lambda_{ij}^{XY} \neq 0$ for at least one combination of i,j. We can test this by first using a likelihood-ratio test. We do so using the function drop1 on our log-linear model. The result can be seen below.
+
+```{r}
+drop1(model32c, test="LRT")
+```
+
+We get a very low p-value of 0.001462 which means we can reject the nullhypothesis on the significance level $alpha=0.01$. 
+
+
+We also calculate a wald-statistica. The statistica is calculated as the square of our estimate divided by the square of the standard deviation, with other name the variance. Hence we get $\hat{\lambda}_{11}^{XY}/Var(\hat{\lambda}_{11}^{XY})$ which values we can find in the R output. We get the wald statistic as:
+
+$$
+(-0.5506)^2 / (0.1692)^2 = 10.58941
+$$
+
+We get a test-statistic of $10.58941$ which we test against the quantile of a chi-squared distribution of one degree of freedom. If we test against the 99% quantile of a chi-squared distribution which equals 6.635, we find that our statistic is larger than that. Hence, we can reject the null-hypothesis on a significance level $\alpha=0.01$ when performing this test aswell. Hence, the interaction parameter does not seem to equal zero which mean that a submodel is not to prefer. Our saturated model is the prefered model to continue the analysis with. 
+
+### Task 3
+
+We can also do a statistical test of independency between the mothers age and whether the child survives or not. We use Pearsons chi-square test and a $G^2$ test. The results can be seen below.
+
+```{r}
+tab1<- as.table(rbind(c(89, 4826), c(60, 1876)))
+dimnames(tab1) <- list(Age = c("<30", "30+"),Survival = c("No","Yes"))
+
+
+loglm(formula = ~Survival + Age, data=tab1)
+```
+
+We find that the result for both tests are identical to the previous tests regarding the interaction parameter in our log-linear model. The tests are actually equivalent to eachother. Testing for independence between rows and columns are the same as testing if the interaction parameter is zero. This is to no surprice considering the connections we made between the odds-ratio and interaction parameter in previous tasks. To conclude, we can reject our null-hypothesis about independence between the mothers age and the child surviving with large margins.
